@@ -52,7 +52,7 @@ With the growing need for accessible remote education, EduSync bridges the gap b
 
 ## Tech Stack
 
-| Area        | Technology            |
+| Area        | Technology             |
 |-------------|------------------------|
 | Frontend    | React.js, Tailwind CSS |
 | Backend     | Node.js, Express.js    |
