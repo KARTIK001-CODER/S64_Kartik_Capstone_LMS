@@ -14,6 +14,15 @@ const notificationSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  type: {
+    type: String,
+    enum: ['enrollment', 'review', 'completion', 'system'],
+    default: 'system'
+  },
+  link: {
+    type: String,
+    default: null
+  },
   isRead: {
     type: Boolean,
     default: false

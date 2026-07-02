@@ -3,7 +3,7 @@ import { cva } from 'class-variance-authority'
 
 const toastVariants = cva([
   'fixed bottom-4 right-4 z-[100] flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg animate-slide-up',
-  'min-w-[300px] max-w-[420px]',
+  'min-w-0 sm:min-w-[300px] max-w-[420px]',
 ], {
   variants: {
     variant: {

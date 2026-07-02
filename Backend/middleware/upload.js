@@ -23,7 +23,6 @@ if (isCloudinaryConfigured) {
     },
   });
 } else {
-  // Dev-mode: store locally
   storage = multer.diskStorage({
     destination: path.join(__dirname, '..', 'uploads', 'thumbnails'),
     filename: (req, file, cb) => {
@@ -33,9 +32,41 @@ if (isCloudinaryConfigured) {
   });
 }
 
+let avatarStorage;
+if (isCloudinaryConfigured) {
+  avatarStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: 'lms_avatars',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+      transformation: [{ width: 300, height: 300, crop: 'fill' }],
+    },
+  });
+} else {
+  avatarStorage = multer.diskStorage({
+    destination: path.join(__dirname, '..', 'uploads', 'avatars'),
+    filename: (req, file, cb) => {
+      const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      cb(null, unique + path.extname(file.originalname));
+    },
+  });
+}
+
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error('Only JPEG, PNG, WebP, and GIF images are allowed'));
+    }
+    cb(null, true);
+  },
+});
+
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowed.includes(file.mimetype)) {
@@ -46,3 +77,4 @@ const upload = multer({
 });
 
 export default upload;
+export { uploadAvatar };

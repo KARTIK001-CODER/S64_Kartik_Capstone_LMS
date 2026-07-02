@@ -15,8 +15,8 @@ export const getNotifications = async (req, res) => {
 // Create notification
 export const createNotification = async (req, res) => {
   try {
-    const { userId, title, message } = req.body;
-    const notification = new Notification({ userId, title, message });
+    const { userId, title, message, type, link } = req.body;
+    const notification = new Notification({ userId, title, message, type, link });
     await notification.save();
     res.status(201).json(notification);
   } catch (error) {

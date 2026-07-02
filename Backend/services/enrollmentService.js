@@ -1,5 +1,7 @@
 import Enrollment from '../models/Enrollment.js';
 import Course from '../models/Course.js';
+import User from '../models/User.js';
+import { notifyStudentEnrollment, notifyStudentCourseCompleted, notifyEducatorNewEnrollment } from './notificationService.js';
 
 export const listEnrolledCourses = async (studentId) => {
   return Enrollment.find({ studentId })
@@ -34,6 +36,14 @@ export const enroll = async (studentId, courseId, { paymentId, orderId, amount }
 
   course.enrolledStudents.push(studentId);
   await course.save();
+
+  try {
+    notifyStudentEnrollment(studentId, course.courseTitle, courseId).catch(() => {});
+    const student = await User.findById(studentId).select('name');
+    if (student && course.educator) {
+      notifyEducatorNewEnrollment(course.educator, student.name, course.courseTitle, courseId).catch(() => {});
+    }
+  } catch (_) { /* notification failure should not block enrollment */ }
 
   return enrollment;
 };
@@ -79,6 +89,7 @@ export const updateProgress = async (studentId, courseId, lectureId) => {
     if (totalLectures > 0 && enrollment.progress.length >= totalLectures && !enrollment.courseCompleted) {
       enrollment.courseCompleted = true;
       enrollment.courseCompletedAt = new Date();
+      notifyStudentCourseCompleted(studentId, course.courseTitle, courseId).catch(() => {});
     }
   }
 

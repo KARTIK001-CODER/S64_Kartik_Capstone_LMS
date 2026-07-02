@@ -1,51 +1,68 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { Users, BookOpen, DollarSign, TrendingUp, Download, ChevronDown } from 'lucide-react';
+import { Users, BookOpen, DollarSign, TrendingUp, Download, ChevronDown, GraduationCap, Star, Activity } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Select } from '../../components/ui/select';
+import { Badge } from '../../components/ui/badge';
+import { ProgressBar } from '../../components/ui/progress';
 import { Skeleton } from '../../components/ui/skeleton';
 import { EmptyState, ErrorState } from '../../components/ui/empty-state';
 
-const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
 const Reports = () => {
   const { api, currency } = useAppContext();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filterType, setFilterType] = useState('30days');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
   const [showExportOptions, setShowExportOptions] = useState(false);
 
-  const getQueryString = useCallback(() => {
-    let startDate = '';
-    let endDate = new Date().toISOString();
-    if (filterType === '7days') { const d = new Date(); d.setDate(d.getDate() - 7); startDate = d.toISOString(); }
-    else if (filterType === '30days') { const d = new Date(); d.setDate(d.getDate() - 30); startDate = d.toISOString(); }
-    else if (filterType === 'custom') { startDate = customDates.start ? new Date(customDates.start).toISOString() : ''; if (customDates.end) endDate = new Date(customDates.end).toISOString(); }
-    return `?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+  const getParams = useCallback(() => {
+    const params = {};
+    if (filterType === '7days') {
+      const d = new Date(); d.setDate(d.getDate() - 7); params.startDate = d.toISOString();
+      params.endDate = new Date().toISOString();
+    } else if (filterType === '30days') {
+      const d = new Date(); d.setDate(d.getDate() - 30); params.startDate = d.toISOString();
+      params.endDate = new Date().toISOString();
+    } else if (filterType === '90days') {
+      const d = new Date(); d.setDate(d.getDate() - 90); params.startDate = d.toISOString();
+      params.endDate = new Date().toISOString();
+    } else if (filterType === 'custom') {
+      if (customDates.start) params.startDate = new Date(customDates.start).toISOString();
+      if (customDates.end) params.endDate = new Date(customDates.end).toISOString();
+    }
+    return params;
   }, [filterType, customDates]);
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await api.get(`/api/educator/reports${getQueryString()}`);
+      const response = await api.get('/api/educator/reports', { params: getParams() });
       setData(response.data);
     } catch (err) {
-      console.error('Failed to fetch reports:', err);
+      setError(err.response?.data?.message || 'Failed to fetch reports');
       setData(null);
     } finally { setLoading(false); }
-  }, [api, getQueryString]);
+  }, [api, getParams]);
 
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
   const handleExport = async (format) => {
     try {
-      const response = await api.get(`/api/educator/reports/export${getQueryString()}&format=${format}`, { responseType: 'blob' });
+      const response = await api.get(`/api/educator/reports/export/${format}`, {
+        params: getParams(),
+        responseType: 'blob'
+      });
       const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `report.${format}`;
+      const a = document.createElement('a');
+      a.href = url; a.download = `analytics_report.${format}`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (err) { console.error('Export failed:', err); }
@@ -61,6 +78,7 @@ const Reports = () => {
 
   const totalStudents = data?.totalStudents || 0;
   const totalCourses = data?.totalCourses || 0;
+  const totalEnrollments = data?.totalEnrollments || 0;
   const totalRevenue = data?.totalRevenue || 0;
   const growthRate = data?.growthRate || 0;
 
@@ -73,11 +91,7 @@ const Reports = () => {
         </div>
         <div className="flex items-center gap-3">
           <div className="w-44">
-            <Select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              options={filterOptions}
-            />
+            <Select value={filterType} onChange={(e) => setFilterType(e.target.value)} options={filterOptions} />
           </div>
           <div className="relative">
             <Button variant="outline" size="sm" onClick={() => setShowExportOptions(!showExportOptions)}>
@@ -114,6 +128,8 @@ const Reports = () => {
           </div>
           <Skeleton variant="card" className="h-80" />
         </div>
+      ) : error ? (
+        <ErrorState title="Failed to load reports" description={error} onRetry={fetchReports} />
       ) : data ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -145,83 +161,162 @@ const Reports = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card variant="default" padding="md">
-              <CardTitle className="text-base mb-4">Enrollments Over Time</CardTitle>
+              <CardTitle as="h2" className="text-base mb-4">Enrollments Over Time</CardTitle>
               <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data?.enrollmentTrend || []}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                    <Line type="monotone" dataKey="count" stroke="#2563EB" strokeWidth={2} dot={{ r: 3 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {(data.enrollmentTrend || []).length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.enrollmentTrend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                       <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
+                     </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">No enrollment data for this period</div>
+                )}
               </div>
             </Card>
 
             <Card variant="default" padding="md">
-              <CardTitle className="text-base mb-4">Revenue Over Time</CardTitle>
+              <CardTitle as="h2" className="text-base mb-4">Completions Over Time</CardTitle>
               <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data?.revenueTrend || []}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                    <Bar dataKey="revenue" fill="#10B981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {(data.completionTrend || []).length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.completionTrend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                       <Line type="monotone" dataKey="count" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3 }} />
+                     </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">No completion data for this period</div>
+                )}
               </div>
             </Card>
 
             <Card variant="default" padding="md">
-              <CardTitle className="text-base mb-4">Course Distribution</CardTitle>
+              <CardTitle as="h2" className="text-base mb-4">Revenue Over Time</CardTitle>
+              <div className="h-72">
+                {(data.revenueTrend || []).length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.revenueTrend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                       <Bar dataKey="revenue" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">No revenue data for this period</div>
+                )}
+              </div>
+            </Card>
+
+            <Card variant="default" padding="md">
+              <CardTitle as="h2" className="text-base mb-4">Course Distribution</CardTitle>
               <div className="h-72 flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={data?.courseDistribution || []} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="value">
-                      {(data?.courseDistribution || []).map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
+                {(data.courseDistribution || []).length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={data.courseDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                        {data.courseDistribution.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No courses yet</div>
+                )}
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
-                {(data?.courseDistribution || []).map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                    <span className="text-xs text-muted-foreground">{item.name}</span>
+              {(data.courseDistribution || []).length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
+                  {data.courseDistribution.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                      <span className="text-xs text-muted-foreground">{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* Course Performance Table */}
+          {(data.coursePerformance || []).length > 0 && (
+            <Card variant="default" padding="none">
+              <CardHeader className="px-6 py-4 border-b border-border">
+                <CardTitle as="h2" className="text-base">Course Performance</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Course</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Enrollments</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Completions</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Completion Rate</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Revenue</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Rating</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {data.coursePerformance.map((c, idx) => (
+                        <tr key={c.courseId || idx} className="hover:bg-accent/50 transition-colors">
+                          <td className="px-4 py-3 font-medium text-foreground">{c.courseTitle}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{c.enrollments}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{c.completions}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2 max-w-28">
+                              <ProgressBar value={c.completionRate} size="sm" variant={c.completionRate >= 80 ? 'success' : c.completionRate >= 50 ? 'warning' : 'default'} className="flex-1" />
+                              <span className="text-xs text-muted-foreground w-8">{c.completionRate}%</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{currency}{c.revenue.toFixed(2)}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1">
+                              <Star size={12} className={c.averageRating > 0 ? 'text-warning fill-warning' : 'text-muted-foreground'} />
+                              <span className="text-sm text-foreground">{c.averageRating > 0 ? c.averageRating : '—'}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Recent Activity */}
+          {(data.recentActivity || []).length > 0 && (
+            <Card variant="default" padding="md">
+              <CardTitle as="h2" className="text-base mb-4">Recent Activity</CardTitle>
+              <div className="space-y-2">
+                {data.recentActivity.slice(0, 8).map((activity, idx) => (
+                  <div key={idx} className="flex items-start gap-3 pb-2 border-b border-border last:border-0 last:pb-0">
+                    <div className={`p-1.5 rounded-full ${activity.type === 'enrollment' ? 'bg-primary/10 text-primary' : 'bg-success/10 text-success'}`}>
+                      {activity.type === 'enrollment' ? <Users size={12} /> : <GraduationCap size={12} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground truncate">{activity.message}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(activity.timestamp).toLocaleDateString()}</p>
+                    </div>
                   </div>
                 ))}
               </div>
             </Card>
-
-            <Card variant="default" padding="md">
-              <CardTitle className="text-base mb-4">Recent Activity</CardTitle>
-              <div className="space-y-3">
-                {(data?.recentActivity || []).length > 0 ? (
-                  data.recentActivity.slice(0, 8).map((activity, idx) => (
-                    <div key={idx} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
-                      <div className={`p-1.5 rounded-full ${activity.type === 'enrollment' ? 'bg-primary/10 text-primary' : 'bg-success/10 text-success'}`}>
-                        {activity.type === 'enrollment' ? <Users size={12} /> : <BookOpen size={12} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground truncate">{activity.message}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(activity.timestamp).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
-                )}
-              </div>
-            </Card>
-          </div>
+          )}
         </>
       ) : (
-        <ErrorState title="No report data" description="No data available for the selected period." onRetry={fetchReports} />
+        <ErrorState title="No data available" description="No data for the selected period." onRetry={fetchReports} />
       )}
     </div>
   );

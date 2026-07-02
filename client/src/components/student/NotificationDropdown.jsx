@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Clock } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
-import { Badge } from '../ui/badge';
 
 const NotificationDropdown = () => {
-  const { notifications, unreadCount, markNotificationRead, markAllNotificationsRead } = useAppContext();
+  const { user, notifications, unreadCount, markNotificationRead, markAllNotificationsRead } = useAppContext();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -95,7 +96,10 @@ const NotificationDropdown = () => {
           </div>
 
           <div className="p-2 border-t border-border text-center bg-muted/30">
-            <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <button
+              onClick={() => { setIsOpen(false); navigate(user?.role === 'educator' ? '/educator/notifications' : '/notifications'); }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
               View all notifications
             </button>
           </div>
