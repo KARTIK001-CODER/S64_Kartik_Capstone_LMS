@@ -1,4 +1,4 @@
-# EduSync - Learning Management System (LMS)
+# LMS — Learning Management System
 
 EduSync is a modern Learning Management System (LMS) that provides an efficient and interactive platform for online education. It allows administrators to manage courses, teachers to create and grade assignments, and students to enroll, submit assignments, and take quizzes.
 

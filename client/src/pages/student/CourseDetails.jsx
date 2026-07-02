@@ -39,30 +39,19 @@ const CourseDetails = () => {
   }, []);
 
   useEffect(() => {
-    const fetchCourseData = () => {
+    const fetchCourseData = async () => {
       setLoading(true);
       try {
-        console.log('Fetching course data for ID:', id, 'type:', typeof id);
-        console.log('All courses in context:', allCourses);
-        
-        // Find the course by _id instead of id
-        const findCourse = allCourses?.find((course) => String(course._id) === String(id));
-        
-        console.log('Found course:', findCourse);
-        setCourseData(findCourse);
-        
+        const { data } = await axios.get(`${API_BASE_URL}/api/courses/${id}`);
+        setCourseData(data);
+
         // Initialize all sections as expanded
-        if (findCourse?.courseContent) {
+        if (data.courseContent) {
           const initialExpandState = {};
-          findCourse.courseContent.forEach(chapter => {
-            initialExpandState[chapter.chapterId] = true;
+          data.courseContent.forEach(chapter => {
+            initialExpandState[chapter._id] = true;
           });
           setExpandedSections(initialExpandState);
-        }
-
-        // Check if user is enrolled
-        if (user && findCourse?.enrolledStudents?.includes(user._id)) {
-          setIsEnrolled(true);
         }
       } catch (error) {
         console.error("Error fetching course data:", error);
@@ -71,11 +60,14 @@ const CourseDetails = () => {
       }
     };
 
-    // Only try to fetch data if allCourses is available
-    if (allCourses && allCourses.length > 0) {
-      fetchCourseData();
+    fetchCourseData();
+  }, [id]);
+
+  useEffect(() => {
+    if (user && courseData?.enrolledStudents?.includes(user._id)) {
+      setIsEnrolled(true);
     }
-  }, [id, allCourses, user]); // Re-run when id or allCourses changes
+  }, [courseData, user]);
 
   const toggleSection = (sectionId) => {
     setExpandedSections(prev => ({
@@ -87,31 +79,32 @@ const CourseDetails = () => {
   // Calculate total lectures and duration
   const calculateCourseTotals = () => {
     if (!courseData?.courseContent) return { totalLectures: 0, totalDuration: 0 };
-    
+
     let totalLectures = 0;
     let totalDuration = 0;
-    
+
     courseData.courseContent.forEach(chapter => {
-      totalLectures += chapter.chapterContent.length;
-      chapter.chapterContent.forEach(lecture => {
-        totalDuration += lecture.lectureDuration;
+      const lectures = chapter.lectures || chapter.chapterContent || [];
+      totalLectures += lectures.length;
+      lectures.forEach(lecture => {
+        totalDuration += (lecture.duration || lecture.lectureDuration || 0);
       });
     });
-    
+
     return { totalLectures, totalDuration };
   };
 
   const { totalLectures, totalDuration } = calculateCourseTotals();
 
   const handlePreviewClick = (lecture) => {
-    if (!lecture || !lecture.lectureUrl) {
+    if (!lecture || !lecture.videoUrl) {
       console.error('No video URL found for lecture:', lecture);
       return;
     }
 
-    const videoId = extractYouTubeId(lecture.lectureUrl);
+    const videoId = extractYouTubeId(lecture.videoUrl);
     if (!videoId) {
-      console.error('Invalid YouTube URL:', lecture.lectureUrl);
+      console.error('Invalid YouTube URL:', lecture.videoUrl);
       return;
     }
 
@@ -121,11 +114,11 @@ const CourseDetails = () => {
 
   const extractYouTubeId = (url) => {
     if (!url) return null;
-    
+
     // Handle different YouTube URL formats
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
     const match = url.match(regExp);
-    
+
     // If no match found, try to extract ID directly (in case it's just the ID)
     if (!match) {
       // Check if it's just an 11-character video ID
@@ -134,7 +127,7 @@ const CourseDetails = () => {
       }
       return null;
     }
-    
+
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
@@ -157,22 +150,77 @@ const CourseDetails = () => {
       setIsProcessing(true);
       setError(null);
 
-      const response = await axios.post(
-        `/api/enrollments/student/enroll/${id}`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        }
+      const authHeaders = {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      };
+
+      // Step 1: Create order (or get direct enrollment in dev mode)
+      const orderRes = await axios.post(
+        `${API_BASE_URL}/api/payments/create-order`,
+        { courseId: id },
+        authHeaders
       );
 
-      if (response.data) {
+      const orderData = orderRes.data;
+
+      // Dev mode — enrolled directly without payment
+      if (orderData.devMode) {
         setSuccess(true);
         setIsEnrolled(true);
-        setError(null);
+        return;
       }
+
+      // Step 2: Open Razorpay checkout
+      const options = {
+        key: orderData.key,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'LMS Platform',
+        description: `Course Enrollment - ${courseData?.courseTitle || ''}`,
+        order_id: orderData.orderId,
+        handler: async function (response) {
+          // Step 3: Verify payment
+          try {
+            const verifyRes = await axios.post(
+              `${API_BASE_URL}/api/payments/verify`,
+              {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              },
+              authHeaders
+            );
+
+            if (verifyRes.data) {
+              setSuccess(true);
+              setIsEnrolled(true);
+            }
+          } catch (verifyErr) {
+            setError(verifyErr.response?.data?.message || 'Payment verification failed');
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessing(false);
+          }
+        },
+        prefill: {
+          email: user.email || '',
+          contact: ''
+        },
+        theme: {
+          color: '#2563EB'
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        setError(response.error?.description || 'Payment failed');
+        setIsProcessing(false);
+      });
+      rzp.open();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to enroll in course');
-    } finally {
+      setError(err.response?.data?.message || 'Failed to initiate payment');
       setIsProcessing(false);
     }
   };
@@ -186,24 +234,25 @@ const CourseDetails = () => {
   }
 
   // Calculate discounted price if discount exists
-  const discountedPrice = courseData.discount 
-    ? courseData.coursePrice - (courseData.coursePrice * courseData.discount / 100) 
+  const discountedPrice = courseData.discount
+    ? courseData.coursePrice - (courseData.coursePrice * courseData.discount / 100)
     : courseData.coursePrice;
 
   const calculateAverageRating = () => {
-    if (!courseData.courseRatings || courseData.courseRatings.length === 0) return 0;
-    const sum = courseData.courseRatings.reduce((total, current) => total + current.rating, 0);
-    return (sum / courseData.courseRatings.length).toFixed(1);
+    const ratings = courseData.courseRatings || courseData.courseRating || [];
+    if (ratings.length === 0) return 0;
+    const sum = ratings.reduce((total, current) => total + current.rating, 0);
+    return (sum / ratings.length).toFixed(1);
   };
 
   const formatDuration = (minutes) => {
     if (minutes < 60) {
       return `${minutes} min`;
     }
-    
+
     const hrs = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    
+
     return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
   };
 
@@ -215,7 +264,7 @@ const CourseDetails = () => {
           <div className="bg-white rounded-xl w-full max-w-4xl mx-4 overflow-hidden shadow-2xl">
             <div className="flex justify-between items-center p-4 border-b">
               <h3 className="text-xl font-semibold text-gray-800">Preview Video</h3>
-              <button 
+              <button
                 onClick={closeVideoPopup}
                 className="text-gray-500 hover:text-gray-700 focus:outline-none"
               >
@@ -270,18 +319,18 @@ const CourseDetails = () => {
         <div className="container mx-auto px-4 lg:px-8">
           <div className="max-w-5xl">
             <h1 className="text-3xl md:text-4xl font-bold mb-4">{courseData.courseTitle}</h1>
-            
+
             {/* Course brief details */}
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <span className="text-yellow-400">★★★★★</span>
                 <span>{calculateAverageRating()}</span>
-                <span className="text-gray-400">({courseData.courseRatings?.length || 0} ratings)</span>
+                <span className="text-gray-400">({(courseData.courseRatings || courseData.courseRating || []).length} ratings)</span>
                 <span className="text-gray-400">{courseData.enrolledStudents?.length || 0} students</span>
               </div>
-              
+
               <p className="text-sm">
-                {courseData.educator && <span>Course by <a href="#" className="text-blue-400 hover:underline">{courseData.educator.name || 'Unknown Educator'}</a></span>}
+                {courseData.educator && <span>Course by <a href="#" className="text-blue-400 hover:underline">{courseData.educator.name || 'GreatStack'}</a></span>}
               </p>
             </div>
           </div>
@@ -328,58 +377,63 @@ const CourseDetails = () => {
 
               {/* Course Content Accordion */}
               <div className="border rounded-md">
-                {courseData.courseContent?.sort((a, b) => a.chapterOrder - b.chapterOrder).map((chapter) => (
-                  <div key={chapter.chapterId} className="border-b last:border-b-0">
-                    {/* Section Header */}
-                    <button 
-                      onClick={() => toggleSection(chapter.chapterId)} 
-                      className="flex justify-between items-center w-full p-4 text-left font-medium focus:outline-none"
-                    >
-                      <div className="flex items-center">
-                        <span className="mr-2">{expandedSections[chapter.chapterId] ? '▾' : '▸'}</span>
-                        <span>{chapter.chapterTitle}</span>
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {chapter.chapterContent.length} lectures • {formatDuration(chapter.chapterContent.reduce((total, lecture) => total + lecture.lectureDuration, 0))}
-                      </div>
-                    </button>
-                    
-                    {/* Section Content */}
-                    {expandedSections[chapter.chapterId] && (
-                      <div className="bg-gray-50 pl-10 pr-4">
-                        {chapter.chapterContent.sort((a, b) => a.lectureOrder - b.lectureOrder).map((lecture) => (
-                          <div key={lecture.lectureId} className="py-3 border-t flex justify-between items-center">
-                            <div className="flex items-center">
-                              <span className="mr-3 text-gray-400">▶</span>
-                              <span>
-                                {lecture.lectureTitle}
-                                {lecture.isPreviewFree && (
-                                  <button
-                                    onClick={() => {
-                                      console.log('Preview clicked for lecture:', lecture);
-                                      handlePreviewClick(lecture);
-                                    }}
-                                    className="ml-2 text-xs text-blue-500 font-medium hover:text-blue-700"
-                                  >
-                                    [Preview]
-                                  </button>
-                                )}
-                              </span>
+                {courseData.courseContent?.sort((a, b) => (a.order || a.chapterOrder) - (b.order || b.chapterOrder)).map((chapter) => {
+                  const lectures = chapter.lectures || chapter.chapterContent || [];
+                  const chapterTitle = chapter.title || chapter.chapterTitle;
+
+                  return (
+                    <div key={chapter._id} className="border-b last:border-b-0">
+                      {/* Section Header */}
+                      <button
+                        onClick={() => toggleSection(chapter._id)}
+                        className="flex justify-between items-center w-full p-4 text-left font-medium focus:outline-none"
+                      >
+                        <div className="flex items-center">
+                          <span className="mr-2">{expandedSections[chapter._id] ? '▾' : '▸'}</span>
+                          <span>{chapterTitle}</span>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {lectures.length} lectures • {formatDuration(lectures.reduce((total, lecture) => total + (lecture.duration || lecture.lectureDuration || 0), 0))}
+                        </div>
+                      </button>
+
+                      {/* Section Content */}
+                      {expandedSections[chapter._id] && (
+                        <div className="bg-gray-50 pl-10 pr-4">
+                          {lectures.sort((a, b) => (a.order || a.lectureOrder) - (b.order || b.lectureOrder)).map((lecture) => (
+                            <div key={lecture._id} className="py-3 border-t flex justify-between items-center">
+                              <div className="flex items-center">
+                                <span className="mr-3 text-gray-400">▶</span>
+                                <span>
+                                  {lecture.title || lecture.lectureTitle}
+                                  {lecture.isPreviewFree && (
+                                    <button
+                                      onClick={() => {
+                                        console.log('Preview clicked for lecture:', lecture);
+                                        handlePreviewClick(lecture);
+                                      }}
+                                      className="ml-2 text-xs text-blue-500 font-medium hover:text-blue-700"
+                                    >
+                                      [Preview]
+                                    </button>
+                                  )}
+                                </span>
+                              </div>
+                              <span className="text-sm text-gray-500">{formatDuration(lecture.duration || lecture.lectureDuration || 0)}</span>
                             </div>
-                            <span className="text-sm text-gray-500">{formatDuration(lecture.lectureDuration)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* Course Description */}
             <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
               <h2 className="text-xl font-bold mb-4">Course Description</h2>
-              <div 
+              <div
                 className="prose max-w-none"
                 dangerouslySetInnerHTML={{ __html: courseData.courseDescription }}
               />
@@ -393,9 +447,13 @@ const CourseDetails = () => {
               <div className="relative">
                 {courseData.courseThumbnail ? (
                   <img
-                    src={courseData.courseThumbnail}
+                    src={courseData.courseThumbnail && courseData.courseThumbnail.startsWith('blob:') ? assets.course_1_thumbnail : courseData.courseThumbnail}
                     alt={courseData.courseTitle}
                     className="w-full rounded-t-lg h-48 object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null; // prevent infinite loop
+                      e.target.src = assets.course_1_thumbnail;
+                    }}
                   />
                 ) : (
                   <div className="w-full h-48 bg-gray-200 rounded-t-lg flex items-center justify-center text-gray-500">
@@ -404,7 +462,7 @@ const CourseDetails = () => {
                 )}
 
                 {playerData ? <iframe src={playerData.videoUrl} title="Course Video" className="w-full h-48 object-cover" /> : null}
-                
+
                 {/* Sale tag if discount exists */}
                 {courseData.discount > 0 && (
                   <div className="absolute top-4 right-4 bg-red-500 text-white px-2 py-1 text-xs font-bold rounded">
@@ -412,7 +470,7 @@ const CourseDetails = () => {
                   </div>
                 )}
               </div>
-              
+
               {/* Pricing */}
               <div className="p-6">
                 <div className="mb-4">
@@ -426,7 +484,7 @@ const CourseDetails = () => {
                     <p className="text-sm text-gray-600 mt-1">5 days left at this price!</p>
                   )}
                 </div>
-                
+
                 {/* Course Stats */}
                 <div className="flex items-center space-x-4 mb-4 text-sm">
                   <div className="flex items-center">
@@ -442,7 +500,7 @@ const CourseDetails = () => {
                     <span>{totalLectures} lectures</span>
                   </div>
                 </div>
-                
+
                 {/* CTA Button */}
                 <div className="mb-3">
                   {isEnrolled ? (
@@ -456,11 +514,10 @@ const CourseDetails = () => {
                     <button
                       onClick={handleEnroll}
                       disabled={isProcessing}
-                      className={`w-full py-3 px-4 ${
-                        isProcessing 
-                          ? 'bg-gray-400 cursor-not-allowed' 
-                          : 'bg-blue-600 hover:bg-blue-700'
-                      } text-white font-semibold rounded-lg shadow-sm transition-colors`}
+                      className={`w-full py-3 px-4 ${isProcessing
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700'
+                        } text-white font-semibold rounded-lg shadow-sm transition-colors`}
                     >
                       {isProcessing ? 'Processing...' : 'Enroll Now'}
                     </button>

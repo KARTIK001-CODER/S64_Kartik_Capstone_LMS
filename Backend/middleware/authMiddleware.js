@@ -65,4 +65,14 @@ const protect = (req, res, next) => {
   }
 };
 
-export { protect };
+const educatorOnly = (req, res, next) => {
+  if (!req.user || req.user.role !== 'educator') {
+    return res.status(403).json({
+      message: 'Access denied. Educator role required.',
+      error: 'AUTH_EDUCATOR_ONLY'
+    });
+  }
+  next();
+};
+
+export { protect, educatorOnly };

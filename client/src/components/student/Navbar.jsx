@@ -1,53 +1,19 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.svg";
 import { assets } from "../../assets/assets";
 import { AppContext } from "../../context/AppContext";
-import * as jwt_decode from "jwt-decode";
+import NotificationDropdown from "./NotificationDropdown";
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isEducator } = useContext(AppContext);
+  const { user, isEducator, logout } = useContext(AppContext);
   const isCourseListPage = location.pathname.includes("/courses-list");
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  useEffect(() => {
-    const checkToken = () => {
-      setIsLoading(true);
-      const token = localStorage.getItem("token");
-      if (token) {
-        try {
-          const decoded = jwt_decode.jwtDecode(token);
-          const currentTime = Date.now() / 1000;
-          if (decoded.exp && decoded.exp < currentTime) {
-            localStorage.removeItem("token");
-            setUser(null);
-          } else {
-            setUser(decoded);
-          }
-        } catch {
-          localStorage.removeItem("token");
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
-      setIsLoading(false);
-    };
-
-    checkToken();
-    window.addEventListener('authChanged', checkToken);
-    return () => window.removeEventListener('authChanged', checkToken);
-  }, [location]);
-
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    setUser(null);
-    setShowDropdown(false);
-    window.dispatchEvent(new Event('authChanged'));
+    logout();
     navigate("/");
   };
 
@@ -61,9 +27,6 @@ const Navbar = () => {
       .slice(0, 2);
   };
 
-  if (isLoading) {
-    return <div className="h-16 flex items-center justify-center">Loading...</div>;
-  }
 
   return (
     <div
@@ -92,11 +55,16 @@ const Navbar = () => {
                   Become Educator
                 </button>
               )}
+              {user.role === "educator" && (
+                <Link to="/educator/reports" className="hover:text-blue-600 transition">
+                  Reports
+                </Link>
+              )}
               <Link to="/my-enrollments" className="hover:text-blue-600 transition">
                 My Enrollments
               </Link>
               {user.role === "educator" && (
-                <Link to="/educator/courses" className="hover:text-blue-600 transition">
+                <Link to="/educator/my-courses" className="hover:text-blue-600 transition">
                   My Courses
                 </Link>
               )}
@@ -110,6 +78,8 @@ const Navbar = () => {
             </Link>
           )}
         </div>
+
+        {user && <NotificationDropdown />}
 
         {user ? (
           <div className="flex items-center gap-4">
@@ -178,6 +148,7 @@ const Navbar = () => {
 
       {/* Mobile Navigation */}
       <div className="md:hidden flex items-center gap-2 sm:gap-5 text-gray-500">
+        {user && <NotificationDropdown />}
         <div className="flex items-center gap-1 sm:gap-2 max-sm:text-xs">
           {user ? (
             <>

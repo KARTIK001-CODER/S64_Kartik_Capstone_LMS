@@ -295,7 +295,7 @@ const Authentication = () => {
               className="w-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 flex items-center justify-center py-3 shadow-sm"
               disabled={isLoading}
               onClick={() => {
-                window.location.href = "http://localhost:3000/api/auth/google";
+                window.location.href = "http://localhost:5000/api/auth/google";
               }}
             >
               <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">

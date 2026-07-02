@@ -26,5 +26,8 @@ userSchema.methods.generateAuthToken = function() {
   );
 };
 
+userSchema.index({ role: 1 });
+userSchema.index({ createdAt: -1 });
+
 const User = mongoose.model('User', userSchema);
 export default User;

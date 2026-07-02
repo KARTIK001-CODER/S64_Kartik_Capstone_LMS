@@ -1,79 +1,105 @@
 // server.js
 
 import dotenv from 'dotenv';
-import express from 'express';
+dotenv.config();
+
+import helmet from 'helmet';
 import cors from 'cors';
-import passport from 'passport';
+import morgan from 'morgan';
+import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
+import express from 'express';
+import passport from 'passport';
+import fs from 'fs';
 import path from 'path';
-import connectDB from './configs/mongodb.js';
+import connectDB from './config/mongodb.js';
 import './config/passport.js';  // Import passport config
+import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 import authRoutes from './routes/auth.js';
 import courseRoutes from './routes/courseRoutes.js';
 import enrollmentRoutes from './routes/enrollment.js';
-import studentRoutes from './routes/student.js';
 import llmRoutes from './routes/llmRoutes.js';
-import ssrRoutes from './routes/ssrRoutes.js';
-import otpRoutes from './routes/otp.js';
-import mongoose from 'mongoose';
+import notificationRoutes from './routes/notificationRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
+import paymentRoutes from './routes/payment.js';
+import educatorRoutes from './routes/educator.js';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './config/swagger.js';
 
-dotenv.config();
+// ── Env validation ──────────────────────────────────────────────
+const requiredVars = ['MONGO_URI', 'JWT_SECRET'];
+const missing = requiredVars.filter(v => !process.env[v] || process.env[v].startsWith('your_'));
+if (missing.length > 0) {
+  console.error(`Missing or placeholder environment variables: ${missing.join(', ')}`);
+  process.exit(1);
+}
+
 connectDB(); // Connect to MongoDB
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Rate limiting middleware - Global rate limiter
+// ── Security headers ────────────────────────────────────────────
+app.use(helmet());
+
+// ── Request logging ─────────────────────────────────────────────
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+// ── Rate limiting ───────────────────────────────────────────────
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
-  message: {
-    error: "Too many requests from this IP, please try again later."
-  },
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: { error: 'Too many requests from this IP, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-
-// Apply rate limiting to all routes
 app.use(limiter);
 
-// Middlewares
-app.use(cors());
-app.use(express.json());
+// ── Body parsing & sanitization ─────────────────────────────────
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+}));
+app.use(express.json({ limit: '10kb' }));
+app.use(mongoSanitize());
 app.use(passport.initialize());
 
-// API Routes
+// ── API Routes ──────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/enrollments', enrollmentRoutes);
-app.use('/api/student', studentRoutes);
 app.use('/api/llm', llmRoutes);
-app.use('/api/otp', otpRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/educator', educatorRoutes);
 
-// SSR Routes - These render React components on the server
-app.use('/api', ssrRoutes);
+// ── API Docs (Swagger) ──────────────────────────────────────────
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'LMS API Docs',
+}));
 
-// Serve static files from the React build
-app.use(express.static('../client/dist'));
+// ── Static files ────────────────────────────────────────────────
+const uploadsDir = path.join(process.cwd(), 'uploads', 'thumbnails');
+fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-// Catch-all handler for client-side routing
-app.get('*', (req, res) => {
-  // Only handle non-API routes
-  if (!req.path.startsWith('/api/')) {
-    res.sendFile(path.resolve(process.cwd(), '../client/dist/index.html'));
-  }
-});
+const clientDist = process.env.CLIENT_DIST;
+if (clientDist) {
+  app.use(express.static(clientDist));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api/')) {
+      res.sendFile(path.resolve(clientDist, 'index.html'));
+    }
+  });
+}
+
+// ── Error handling ──────────────────────────────────────────────
+app.use(notFound);
+app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`📱 SSR Demo available at http://localhost:${PORT}/api/ssr`);
-  console.log(`📊 SSR Stats at http://localhost:${PORT}/api/ssr/stats`);
-  console.log(`📚 SSR Course pages at http://localhost:${PORT}/api/ssr/course/1`);
-  console.log(`🔐 OTP Service available at http://localhost:${PORT}/api/otp`);
-  console.log(`🔐 OTP Health Check at http://localhost:${PORT}/api/otp/health`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

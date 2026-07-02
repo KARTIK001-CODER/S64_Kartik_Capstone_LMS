@@ -95,7 +95,7 @@ export const dummyEducatorData = {
     "_id": "675ac1512100b91a6d9b8b24",
     "name": "GreatStack",
     "email": "user.greatstack@gmail.com",
-    "imageUrl": "https://via.placeholder.com/150",
+    "imageUrl": assets.profile_img,
     "createdAt": "2024-12-12T10:56:17.930Z",
     "updatedAt": "2024-12-12T10:56:17.930Z",
     "__v": 0
@@ -133,7 +133,7 @@ export const dummyDashboardData = {
             "student": {
                 "_id": "user_2qQlvXyr02B4Bq6hT0Gvaa5fT9V",
                 "name": "Great Stack",
-                "imageUrl": "https://via.placeholder.com/150"
+                "imageUrl": assets.profile_img
             }
         },
         {
@@ -141,7 +141,7 @@ export const dummyDashboardData = {
             "student": {
                 "_id": "user_2qQlvXyr02B4Bq6hT0Gvaa5fT9V",
                 "name": "Great Stack",
-                "imageUrl": "https://via.placeholder.com/150"
+                "imageUrl": assets.profile_img
             }
         },
         {
@@ -149,7 +149,7 @@ export const dummyDashboardData = {
             "student": {
                 "_id": "user_2qQlvXyr02B4Bq6hT0Gvaa5fT9V",
                 "name": "Great Stack",
-                "imageUrl": "https://via.placeholder.com/150"
+                "imageUrl": assets.profile_img
             }
         },
         {
@@ -157,7 +157,7 @@ export const dummyDashboardData = {
             "student": {
                 "_id": "user_2qQlvXyr02B4Bq6hT0Gvaa5fT9V",
                 "name": "Great Stack",
-                "imageUrl": "https://via.placeholder.com/150"
+                "imageUrl": assets.profile_img
             }
         },
         {
@@ -165,7 +165,7 @@ export const dummyDashboardData = {
             "student": {
                 "_id": "user_2qQlvXyr02B4Bq6hT0Gvaa5fT9V",
                 "name": "Great Stack",
-                "imageUrl": "https://via.placeholder.com/150"
+                "imageUrl": assets.profile_img
             }
         }
     ],
@@ -177,7 +177,7 @@ export const dummyStudentEnrolled = [
         "student": {
             "_id": "user_2qQlvXyr02B4Bq6hT0Gvaa5fT9V",
             "name": "GreatStack",
-            "imageUrl": "https://via.placeholder.com/150"
+            "imageUrl": assets.profile_img
         },
         "courseTitle": "Introduction to JavaScript",
         "purchaseDate": "2024-12-20T08:39:55.509Z"
@@ -186,7 +186,7 @@ export const dummyStudentEnrolled = [
         "student": {
             "_id": "user_2qQlvXyr02B4Bq6hT0Gvaa5fT9V",
             "name": "GreatStack",
-            "imageUrl": "https://via.placeholder.com/150"
+            "imageUrl": assets.profile_img
         },
         "courseTitle": "Introduction to JavaScript",
         "purchaseDate": "2024-12-20T08:59:49.964Z"
@@ -195,7 +195,7 @@ export const dummyStudentEnrolled = [
         "student": {
             "_id": "user_2qQlvXyr02B4Bq6hT0Gvaa5fT9V",
             "name": "GreatStack",
-            "imageUrl": "https://via.placeholder.com/150"
+            "imageUrl": assets.profile_img
         },
         "courseTitle": "Advanced Python Programming",
         "purchaseDate": "2024-12-20T11:03:42.931Z"
@@ -204,7 +204,7 @@ export const dummyStudentEnrolled = [
         "student": {
             "_id": "user_2qQlvXyr02B4Bq6hT0Gvaa5fT9V",
             "name": "GreatStack",
-            "imageUrl": "https://via.placeholder.com/150"
+            "imageUrl": assets.profile_img
         },
         "courseTitle": "Web Development Bootcamp",
         "purchaseDate": "2024-12-20T11:04:48.798Z"

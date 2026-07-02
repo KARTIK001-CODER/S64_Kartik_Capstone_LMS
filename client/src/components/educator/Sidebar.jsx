@@ -23,6 +23,11 @@ const navItems = [
     icon: assets.user_icon,
     to: '/educator/student-enrolled',
   },
+  {
+    label: 'Reports',
+    icon: assets.earning_icon,
+    to: '/educator/reports',
+  },
 ]
 
 const Sidebar = () => {

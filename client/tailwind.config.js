@@ -6,6 +6,15 @@ export default {
   ],
   theme: {
     extend: {
+      colors: {
+        background: "#F8FAFC",
+        primary: "#2563EB",
+        primaryHover: "#1D4ED8",
+        accent: "#22C55E",
+        textPrimary: "#0F172A",
+        textSecondary: "#334155",
+        muted: "#64748B",
+      },
       fontSize: {
         "course-details-heading-small": ['26px', '36px'],
         "course-details-heading-large": ['36px', '44px'],
@@ -14,10 +23,10 @@ export default {
         "default": ['15px', '21px'],
       },
       gridTemplateColums: {
-        "auto" : "repeat(auto-fit, minmax(200px, 1ft))"
+        "auto": "repeat(auto-fit, minmax(200px, 1ft))"
       },
       spacing: {
-        'section-height' : '500'
+        'section-height': '500'
       }
     },
   },

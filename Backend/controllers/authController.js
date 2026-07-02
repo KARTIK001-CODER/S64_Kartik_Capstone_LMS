@@ -1,7 +1,6 @@
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import otpService from '../services/otpService.js';
 
 // Simple in-memory rate limiting
 const loginAttempts = new Map();
@@ -14,13 +13,13 @@ export const register = async (req, res) => {
   if (!name || !email || !password || !role) {
     return res.status(400).json({ message: 'All fields are required' });
   }
-  
+
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({ message: 'Invalid email format' });
   }
-  
+
   // Validate password strength
   if (password.length < 6) {
     return res.status(400).json({ message: 'Password must be at least 6 characters' });
@@ -30,14 +29,6 @@ export const register = async (req, res) => {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
-    }
-
-    // Check if OTP is verified for this email
-    const otpStatus = await otpService.getOTPStatus(email, 'registration');
-    if (!otpStatus.exists || !otpStatus.isVerified) {
-      return res.status(400).json({ 
-        message: 'Please verify your email with OTP before registration' 
-      });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -53,12 +44,12 @@ export const register = async (req, res) => {
     const savedUser = await newUser.save();
 
     const token = jwt.sign(
-      { 
-        id: savedUser._id, 
+      {
+        id: savedUser._id,
         role: savedUser.role,
         name: savedUser.name
-      }, 
-      process.env.JWT_SECRET, 
+      },
+      process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
@@ -88,12 +79,12 @@ export const login = async (req, res) => {
   // Check for rate limiting
   const key = `${ip}:${email}`;
   const attempt = loginAttempts.get(key) || { count: 0, lockUntil: 0 };
-  
+
   // Check if user is locked out
   const now = Date.now();
   if (attempt.lockUntil > now) {
     const remainingMinutes = Math.ceil((attempt.lockUntil - now) / 60000);
-    return res.status(429).json({ 
+    return res.status(429).json({
       message: `Too many failed login attempts. Try again in ${remainingMinutes} minutes.`
     });
   }
@@ -112,32 +103,16 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Check if OTP is verified for login (2FA)
-    const otpStatus = await otpService.getOTPStatus(email, 'login');
-    if (!otpStatus.exists || !otpStatus.isVerified) {
-      // Return success but indicate OTP verification is needed
-      return res.status(200).json({ 
-        user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role
-        },
-        requiresOTP: true,
-        message: 'Please verify OTP to complete login'
-      });
-    }
-
     // Reset attempts on successful login
     loginAttempts.delete(key);
 
     const token = jwt.sign(
-      { 
-        id: user._id, 
+      {
+        id: user._id,
         role: user.role,
         name: user.name
-      }, 
-      process.env.JWT_SECRET, 
+      },
+      process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
@@ -156,74 +131,22 @@ export const login = async (req, res) => {
   }
 };
 
-// New endpoint for completing login after OTP verification
-export const completeLogin = async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
-  }
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Check if OTP is verified for login
-    const otpStatus = await otpService.getOTPStatus(email, 'login');
-    if (!otpStatus.exists || !otpStatus.isVerified) {
-      return res.status(400).json({ 
-        message: 'OTP verification required to complete login' 
-      });
-    }
-
-    const token = jwt.sign(
-      { 
-        id: user._id, 
-        role: user.role,
-        name: user.name
-      }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
-    );
-
-    // Don't return password in response
-    const userResponse = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    };
-
-    res.status(200).json({ user: userResponse, token });
-  } catch (error) {
-    console.error("Error during login completion:", error);
-    res.status(500).json({ message: 'Something went wrong', error: error.message });
-  }
-};
-
 function updateLoginAttempts(key, success) {
   if (success) {
     loginAttempts.delete(key);
     return;
   }
-  
+
   const attempt = loginAttempts.get(key) || { count: 0, lockUntil: 0 };
   attempt.count += 1;
-  
+
   if (attempt.count >= MAX_ATTEMPTS) {
     attempt.lockUntil = Date.now() + LOCKOUT_TIME;
     attempt.count = 0;
   }
-  
+
   loginAttempts.set(key, attempt);
-  
+
   // Clean up old entries periodically
   if (loginAttempts.size > 100) {
     const now = Date.now();
@@ -238,26 +161,26 @@ function updateLoginAttempts(key, success) {
 // New endpoint for token refresh
 export const refreshToken = async (req, res) => {
   const { token } = req.body;
-  
+
   if (!token) {
     return res.status(400).json({ message: 'Token is required' });
   }
-  
+
   try {
     // Verify the existing token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     // Generate a new token
     const newToken = jwt.sign(
-      { 
-        id: decoded.id, 
+      {
+        id: decoded.id,
         role: decoded.role,
         name: decoded.name
-      }, 
-      process.env.JWT_SECRET, 
+      },
+      process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-    
+
     res.status(200).json({ token: newToken });
   } catch (error) {
     return res.status(401).json({ message: 'Invalid token' });

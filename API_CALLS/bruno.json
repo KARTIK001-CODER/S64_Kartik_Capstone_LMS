@@ -1,9 +1,0 @@
-{
-  "version": "1",
-  "name": "API_CALLS",
-  "type": "collection",
-  "ignore": [
-    "node_modules",
-    ".git"
-  ]
-}
