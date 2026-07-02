@@ -28,6 +28,7 @@ const Avatar = React.forwardRef(({ className = '', size, src, alt, initials, ...
           src={src}
           alt={alt || ''}
           className="h-full w-full object-cover"
+          loading="lazy"
           onError={() => setImgError(true)}
         />
       </div>
