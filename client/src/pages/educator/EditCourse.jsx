@@ -237,7 +237,7 @@ const EditCourse = () => {
                   const u = [...form.learningOutcomes]; u[idx] = e.target.value;
                   setForm(prev => ({ ...prev, learningOutcomes: u }));
                 }} className="flex-1 h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
-                <button type="button" onClick={() => removeArrayItem('learningOutcomes', idx)} className="p-1 text-muted-foreground hover:text-error"><X size={14} /></button>
+                <button type="button" onClick={() => removeArrayItem('learningOutcomes', idx)} aria-label="Remove outcome" className="p-1 text-muted-foreground hover:text-error"><X size={14} /></button>
               </div>
             ))}
             <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem('learningOutcomes', '')}><Plus size={14} /> Add Outcome</Button>
@@ -254,7 +254,7 @@ const EditCourse = () => {
                   const u = [...form.requirements]; u[idx] = e.target.value;
                   setForm(prev => ({ ...prev, requirements: u }));
                 }} className="flex-1 h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
-                <button type="button" onClick={() => removeArrayItem('requirements', idx)} className="p-1 text-muted-foreground hover:text-error"><X size={14} /></button>
+                <button type="button" onClick={() => removeArrayItem('requirements', idx)} aria-label="Remove requirement" className="p-1 text-muted-foreground hover:text-error"><X size={14} /></button>
               </div>
             ))}
             <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem('requirements', '')}><Plus size={14} /> Add Requirement</Button>
@@ -288,7 +288,7 @@ const EditCourse = () => {
                   {currentChapter.lectures.map((lec, idx) => (
                     <div key={idx} className="flex items-center justify-between rounded bg-muted/50 px-3 py-2 text-sm">
                       <span className="flex items-center gap-2"><Video size={12} /> {lec.title}</span>
-                      <button type="button" onClick={() => { const u = [...currentChapter.lectures]; u.splice(idx, 1); setCurrentChapter(prev => ({ ...prev, lectures: u })); }} className="text-muted-foreground hover:text-error"><Trash2 size={12} /></button>
+                      <button type="button" onClick={() => { const u = [...currentChapter.lectures]; u.splice(idx, 1); setCurrentChapter(prev => ({ ...prev, lectures: u })); }} aria-label="Remove lecture" className="text-muted-foreground hover:text-error"><Trash2 size={12} /></button>
                     </div>
                   ))}
                 </div>
@@ -303,7 +303,7 @@ const EditCourse = () => {
                 <div key={chapterIdx} className="rounded-lg border border-border overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
                     <div className="flex items-center gap-2"><BookOpen size={14} className="text-primary" /> <span className="text-sm font-medium">{chapter.title}</span> <Badge variant="neutral" size="sm">{chapter.lectures.length} lectures</Badge></div>
-                    <button type="button" onClick={() => removeChapter(chapterIdx)} className="p-1 text-muted-foreground hover:text-error"><Trash2 size={14} /></button>
+                    <button type="button" onClick={() => removeChapter(chapterIdx)} aria-label="Remove chapter" className="p-1 text-muted-foreground hover:text-error"><Trash2 size={14} /></button>
                   </div>
                   <div className="divide-y divide-border">
                     {chapter.lectures.map((lecture, lectureIdx) => (
@@ -312,7 +312,7 @@ const EditCourse = () => {
                         <div className="flex items-center gap-3">
                           <span className="text-xs text-muted-foreground">{lecture.duration} min</span>
                           {lecture.isPreviewFree && <Badge variant="warning" size="sm">Free</Badge>}
-                          <button type="button" onClick={() => removeLecture(chapterIdx, lectureIdx)} className="text-muted-foreground hover:text-error"><Trash2 size={12} /></button>
+                          <button type="button" onClick={() => removeLecture(chapterIdx, lectureIdx)} aria-label="Remove lecture" className="text-muted-foreground hover:text-error"><Trash2 size={12} /></button>
                         </div>
                       </div>
                     ))}

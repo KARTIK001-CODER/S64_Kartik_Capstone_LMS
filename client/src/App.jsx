@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useRef } from 'react';
 import { Routes, Route, useMatch, Navigate } from 'react-router-dom';
 import { useAppContext } from './context/AppContext';
 import { ToastProvider } from './components/ui/toast';
@@ -42,11 +42,16 @@ const ProtectedRoute = ({ children, requireEducator = false }) => {
 
 const App = () => {
   const isEducatorRoute = useMatch('/educator/*');
+  const mainRef = useRef(null);
 
   return (
     <ToastProvider>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none">
+        Skip to content
+      </a>
       <div className="min-h-screen bg-background text-foreground">
         {!isEducatorRoute && <Navbar />}
+        <main id="main-content" ref={mainRef}>
         <Suspense fallback={<Loading />}>
           <Routes>
             {/* Public Routes */}
@@ -102,6 +107,7 @@ const App = () => {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
+        </main>
       </div>
     </ToastProvider>
   );

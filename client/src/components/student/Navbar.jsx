@@ -111,6 +111,7 @@ const Navbar = () => {
                 <button
                   onClick={() => setShowDropdown(!showDropdown)}
                   className="flex items-center gap-2 rounded-lg hover:bg-accent p-1.5 transition-colors"
+                  aria-label={`User menu for ${user.name}`}
                 >
                   <Avatar
                     size="sm"

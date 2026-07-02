@@ -52,6 +52,7 @@ const Footer = () => {
                 <input
                   type="email"
                   placeholder="Enter your email"
+                  aria-label="Email for newsletter"
                   className="w-full h-10 pl-9 pr-3 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 />
               </div>

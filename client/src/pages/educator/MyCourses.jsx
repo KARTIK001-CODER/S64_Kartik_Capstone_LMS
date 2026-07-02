@@ -249,6 +249,7 @@ const MyCourses = () => {
                       <button
                         onClick={() => toggleSelect(course._id)}
                         className={`p-1 rounded ${selected.includes(course._id) ? 'text-primary' : 'text-muted-foreground hover:text-foreground'} bg-background/80 backdrop-blur-sm`}
+                        aria-label={selected.includes(course._id) ? `Deselect ${course.courseTitle}` : `Select ${course.courseTitle}`}
                       >
                         {selected.includes(course._id) ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
