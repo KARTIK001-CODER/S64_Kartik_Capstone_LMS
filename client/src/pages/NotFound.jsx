@@ -1,28 +1,28 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Home } from 'lucide-react';
+import { Button } from '../components/ui/button';
 
 const NotFound = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-background">
       <div className="text-center max-w-md">
-        <div className="text-8xl font-bold text-blue-200 mb-4">404</div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Page not found</h1>
-        <p className="text-gray-500 mb-8">The page you're looking for doesn't exist or has been moved.</p>
+        <p className="text-[8rem] sm:text-[10rem] font-bold leading-none text-primary/10 select-none">404</p>
+        <h1 className="text-2xl font-bold text-foreground mt-[-1.5rem] mb-2">Page not found</h1>
+        <p className="text-muted-foreground mb-8 leading-relaxed">
+          The page you are looking for doesn&apos;t exist or has been moved.
+        </p>
         <div className="flex items-center justify-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium"
-          >
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            <ArrowLeft size={16} />
             Go Back
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm"
-          >
+          </Button>
+          <Button onClick={() => navigate('/')}>
+            <Home size={16} />
             Home
-          </button>
+          </Button>
         </div>
       </div>
     </div>

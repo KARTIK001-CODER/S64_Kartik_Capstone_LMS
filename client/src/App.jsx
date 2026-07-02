@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, useMatch, Navigate } from 'react-router-dom';
 import { useAppContext } from './context/AppContext';
+import { ToastProvider } from './components/ui/toast';
 
 // Components
 import Navbar from './components/student/Navbar';
@@ -39,87 +40,89 @@ const App = () => {
   const isEducatorRoute = useMatch('/educator/*');
 
   return (
-    <div className="text-default min-h-screen bg-white">
-      {!isEducatorRoute && <Navbar />}
-      <Suspense fallback={<Loading />}>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/courses-list" element={<CoursesList />} />
-          <Route path="/courses-list/:input" element={<CoursesList />} />
-          <Route path="/courses/:id" element={<CourseDetails />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
+    <ToastProvider>
+      <div className="min-h-screen bg-background text-foreground">
+        {!isEducatorRoute && <Navbar />}
+        <Suspense fallback={<Loading />}>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Home />} />
+            <Route path="/courses-list" element={<CoursesList />} />
+            <Route path="/courses-list/:input" element={<CoursesList />} />
+            <Route path="/courses/:id" element={<CourseDetails />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
 
-          {/* Protected Student Routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <StudentDashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/my-enrollments" element={
-            <ProtectedRoute>
-              <MyEnrollments />
-            </ProtectedRoute>
-          } />
-          <Route path="/player/:courseId" element={
-            <ProtectedRoute>
-              <Player />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } />
+            {/* Protected Student Routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <StudentDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/my-enrollments" element={
+              <ProtectedRoute>
+                <MyEnrollments />
+              </ProtectedRoute>
+            } />
+            <Route path="/player/:courseId" element={
+              <ProtectedRoute>
+                <Player />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
 
-          {/* Protected Educator Routes */}
-          <Route path="/educator" element={
-            <ProtectedRoute requireEducator>
-              <Educator />
-            </ProtectedRoute>
-          } />
-          <Route path="/educator/dashboard" element={
-            <ProtectedRoute requireEducator>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/educator/add-course" element={
-            <ProtectedRoute requireEducator>
-              <AddCourse />
-            </ProtectedRoute>
-          } />
-          <Route path="/educator/edit-course/:id" element={
-            <ProtectedRoute requireEducator>
-              <EditCourse />
-            </ProtectedRoute>
-          } />
-          <Route path="/educator/my-courses" element={
-            <ProtectedRoute requireEducator>
-              <MyCourses />
-            </ProtectedRoute>
-          } />
-          <Route path="/educator/student-enrolled" element={
-            <ProtectedRoute requireEducator>
-              <StudentsEnrolled />
-            </ProtectedRoute>
-          } />
-          <Route path="/educator/courses/:courseId/students" element={
-            <ProtectedRoute requireEducator>
-              <StudentsEnrolled />
-            </ProtectedRoute>
-          } />
-          <Route path="/educator/reports" element={
-            <ProtectedRoute requireEducator>
-              <Reports />
-            </ProtectedRoute>
-          } />
+            {/* Protected Educator Routes */}
+            <Route path="/educator" element={
+              <ProtectedRoute requireEducator>
+                <Educator />
+              </ProtectedRoute>
+            } />
+            <Route path="/educator/dashboard" element={
+              <ProtectedRoute requireEducator>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/educator/add-course" element={
+              <ProtectedRoute requireEducator>
+                <AddCourse />
+              </ProtectedRoute>
+            } />
+            <Route path="/educator/edit-course/:id" element={
+              <ProtectedRoute requireEducator>
+                <EditCourse />
+              </ProtectedRoute>
+            } />
+            <Route path="/educator/my-courses" element={
+              <ProtectedRoute requireEducator>
+                <MyCourses />
+              </ProtectedRoute>
+            } />
+            <Route path="/educator/student-enrolled" element={
+              <ProtectedRoute requireEducator>
+                <StudentsEnrolled />
+              </ProtectedRoute>
+            } />
+            <Route path="/educator/courses/:courseId/students" element={
+              <ProtectedRoute requireEducator>
+                <StudentsEnrolled />
+              </ProtectedRoute>
+            } />
+            <Route path="/educator/reports" element={
+              <ProtectedRoute requireEducator>
+                <Reports />
+              </ProtectedRoute>
+            } />
 
-          {/* 404 */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Suspense>
-    </div>
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </div>
+    </ToastProvider>
   );
 };
 

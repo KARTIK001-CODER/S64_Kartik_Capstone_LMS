@@ -1,115 +1,116 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import Loading from '../../components/student/Loading';
-import { assets } from '../../assets/assets';
+import { Users, Mail, Calendar } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Avatar } from '../../components/ui/avatar';
+import { Skeleton } from '../../components/ui/skeleton';
+import { EmptyState, ErrorState } from '../../components/ui/empty-state';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 const StudentsEnrolled = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedCourse, setSelectedCourse] = useState(null);
 
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
-
-        const response = await axios.get('http://localhost:5000/api/courses/educator', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+        if (!token) throw new Error('No authentication token found');
+        const response = await axios.get(`${API_BASE}/api/courses/educator`, {
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
-
         const data = response.data?.courses || response.data;
-
-        if (Array.isArray(data)) {
-          setCourses(data);
-        } else {
-          setCourses([]);
-        }
+        setCourses(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error('Error fetching courses:', err);
-        setError(err.message || 'Failed to fetch courses');
-        setCourses([]);
-      } finally {
-        setLoading(false);
-      }
+        setError(err.message || 'Failed to fetch data');
+      } finally { setLoading(false); }
     };
-
     fetchCourses();
   }, []);
 
-  if (loading) return <Loading />;
-  if (error) return <div className="p-8 text-red-500">{error}</div>;
+  const allEnrollments = courses.flatMap(course =>
+    (course.enrolledStudents || []).map(studentId => ({
+      courseTitle: course.courseTitle,
+      courseId: course._id,
+      studentId,
+    }))
+  );
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <Skeleton variant="heading" />
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center gap-4 p-4 rounded-xl border border-border">
+              <Skeleton variant="avatar" className="h-10 w-10" />
+              <div className="flex-1 space-y-1">
+                <Skeleton variant="text" className="w-48" />
+                <Skeleton variant="text" className="w-32" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <ErrorState title="Failed to load data" description={error} onRetry={() => window.location.reload()} />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Enrolled Students</h2>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Students Enrolled</h1>
+        <p className="text-muted-foreground mt-1">View all students enrolled in your courses</p>
+      </div>
 
-          {courses.length > 0 ? (
-            <div className="space-y-6">
-              {courses.map(course => (
-                <div key={course._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800">{course.courseTitle}</h3>
-                    <p className="text-sm text-gray-500">{course.enrolledStudents?.length || 0} students enrolled</p>
+      {courses.length > 0 ? (
+        <Card variant="default" padding="none">
+          <CardHeader className="px-6 py-4 border-b border-border">
+            <CardTitle className="text-base">All Enrollments ({allEnrollments.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 divide-y divide-border">
+            {courses.map((course) => {
+              const students = course.enrolledStudents || [];
+              if (students.length === 0) return null;
+              return (
+                <div key={course._id} className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-foreground">{course.courseTitle}</h3>
+                    <Badge variant="neutral" size="sm">{students.length} enrolled</Badge>
                   </div>
-
-                  {course.enrolledStudents && course.enrolledStudents.length > 0 ? (
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Student
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Email
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {course.enrolledStudents.map((student) => (
-                          <tr key={student._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10">
-                                  <img
-                                    className="h-10 w-10 rounded-full"
-                                    src={student.avatar || assets.profile_img}
-                                    alt={student.name}
-                                  />
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {student.name}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{student.email}</div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="p-4 text-center text-gray-500">
-                      No students enrolled in this course yet
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    {students.map((studentId, idx) => (
+                      <div key={`${course._id}-${idx}`} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/30">
+                        <Avatar size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            Student {idx + 1}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">ID: {studentId}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16 bg-white rounded-lg shadow-md border border-gray-100">
-              <p className="text-xl text-gray-600">No courses found</p>
-            </div>
-          )}
-        </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      ) : (
+        <EmptyState icon={Users} title="No enrollments yet" description="Students will appear here once they enroll in your courses." />
+      )}
+    </div>
   );
 };
 

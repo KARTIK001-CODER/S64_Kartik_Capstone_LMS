@@ -1,28 +1,37 @@
-import React from 'react'
-import { dummyEducatorData, assets } from '../../assets/assets'
-import { Link } from 'react-router-dom'
+import React, { useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { LogOut, LayoutDashboard } from 'lucide-react';
+import logoSrc from '../../assets/logo.svg';
+import { AppContext } from '../../context/AppContext';
+import { Avatar } from '../ui/avatar';
+import { Button } from '../ui/button';
+import ThemeToggle from '../ui/ThemeToggle';
 
 const NavBar = () => {
-  const educatorData = dummyEducatorData
-  const userName = localStorage.getItem('userName') || 'Developer'
+  const { user } = useContext(AppContext);
+  const navigate = useNavigate();
 
   return (
-    <nav className="bg-white shadow-md border-b border-gray-200 py-3 px-4 md:px-8 flex items-center justify-between">
+    <nav className="h-16 border-b border-border bg-card px-4 md:px-8 flex items-center justify-between flex-shrink-0">
       <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition">
-        <img src={assets.logo} alt="logo" className="w-28 lg:w-32" />
+        <img src={logoSrc} alt="Learnova" className="h-7 w-auto" />
       </Link>
-      <div className="flex items-center gap-4">
-        <span className="text-gray-700 font-medium text-base">
-          Hi, {userName}
-        </span>
-        <img
-          src={assets.profile_img}
-          alt="user"
-          className="w-10 h-10 rounded-full border border-gray-200 shadow-sm object-cover"
-        />
+      <div className="flex items-center gap-3">
+        <ThemeToggle />
+        <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+          <LayoutDashboard size={14} />
+          Student View
+        </Button>
+        <div className="flex items-center gap-3 pl-3 border-l border-border">
+          <div className="text-right">
+            <p className="text-sm font-medium text-foreground">{user?.name || 'Educator'}</p>
+            <p className="text-xs text-muted-foreground">Educator</p>
+          </div>
+          <Avatar size="sm" alt={user?.name} />
+        </div>
       </div>
     </nav>
-  )
-}
+  );
+};
 
-export default NavBar
+export default NavBar;
