@@ -56,7 +56,7 @@ const Navbar = () => {
           : []),
         ...(user.role === "educator"
           ? [
-              { label: "Educator", path: "/educator/dashboard" },
+              { label: "Educator", path: "/educator" },
               { label: "My Courses", path: "/educator/my-courses" },
             ]
           : []),

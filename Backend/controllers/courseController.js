@@ -47,3 +47,13 @@ export const getEducatorCourses = asyncHandler(async (req, res) => {
   const result = await courseService.listEducatorCourses(req.user._id, req.query);
   res.json(result);
 });
+
+export const bulkCourseAction = asyncHandler(async (req, res) => {
+  const result = await courseService.bulkAction(req.user._id, req.body);
+  res.json(result);
+});
+
+export const duplicateCourse = asyncHandler(async (req, res) => {
+  const course = await courseService.duplicateCourse(req.params.id, req.user._id);
+  res.status(201).json(course);
+});

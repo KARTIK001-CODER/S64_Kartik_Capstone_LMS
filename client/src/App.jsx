@@ -27,6 +27,10 @@ const EditCourse = lazy(() => import('./pages/educator/EditCourse'));
 const MyCourses = lazy(() => import('./pages/educator/MyCourses'));
 const StudentsEnrolled = lazy(() => import('./pages/educator/StudentsEnrolled'));
 const Reports = lazy(() => import('./pages/educator/Reports'));
+const Reviews = lazy(() => import('./pages/educator/Reviews'));
+const Notifications = lazy(() => import('./pages/educator/Notifications'));
+const EducatorProfile = lazy(() => import('./pages/educator/Profile'));
+const EducatorSettings = lazy(() => import('./pages/educator/Settings'));
 
 const ProtectedRoute = ({ children, requireEducator = false }) => {
   const { user, loading } = useAppContext();
@@ -80,42 +84,19 @@ const App = () => {
               <ProtectedRoute requireEducator>
                 <Educator />
               </ProtectedRoute>
-            } />
-            <Route path="/educator/dashboard" element={
-              <ProtectedRoute requireEducator>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/educator/add-course" element={
-              <ProtectedRoute requireEducator>
-                <AddCourse />
-              </ProtectedRoute>
-            } />
-            <Route path="/educator/edit-course/:id" element={
-              <ProtectedRoute requireEducator>
-                <EditCourse />
-              </ProtectedRoute>
-            } />
-            <Route path="/educator/my-courses" element={
-              <ProtectedRoute requireEducator>
-                <MyCourses />
-              </ProtectedRoute>
-            } />
-            <Route path="/educator/student-enrolled" element={
-              <ProtectedRoute requireEducator>
-                <StudentsEnrolled />
-              </ProtectedRoute>
-            } />
-            <Route path="/educator/courses/:courseId/students" element={
-              <ProtectedRoute requireEducator>
-                <StudentsEnrolled />
-              </ProtectedRoute>
-            } />
-            <Route path="/educator/reports" element={
-              <ProtectedRoute requireEducator>
-                <Reports />
-              </ProtectedRoute>
-            } />
+            }>
+              <Route index element={<Dashboard />} />
+              <Route path="add-course" element={<AddCourse />} />
+              <Route path="edit-course/:id" element={<EditCourse />} />
+              <Route path="my-courses" element={<MyCourses />} />
+              <Route path="student-enrolled" element={<StudentsEnrolled />} />
+              <Route path="courses/:courseId/students" element={<StudentsEnrolled />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="reviews" element={<Reviews />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="profile" element={<EducatorProfile />} />
+              <Route path="settings" element={<EducatorSettings />} />
+            </Route>
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />

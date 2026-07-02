@@ -9,7 +9,9 @@ import {
   deleteCourse,
   getEducatorCourses,
   addCourseRating,
-  deleteCourseRating
+  deleteCourseRating,
+  duplicateCourse,
+  bulkCourseAction
 } from '../controllers/courseController.js';
 
 const router = express.Router();
@@ -90,6 +92,7 @@ router.get('/:id', getCourseById);
  *         description: Paginated educator courses
  */
 router.get('/educator', protect, educatorOnly, getEducatorCourses);
+router.post('/bulk', protect, educatorOnly, bulkCourseAction);
 
 /**
  * @openapi
@@ -153,6 +156,25 @@ router.post('/', protect, educatorOnly, upload.single('courseThumbnail'), addCou
  *         description: Course not found
  */
 router.put('/:id', protect, educatorOnly, upload.single('courseThumbnail'), updateCourse);
+
+/**
+ * @openapi
+ * /api/courses/{id}/duplicate:
+ *   post:
+ *     summary: Duplicate a course
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       201:
+ *         description: Duplicated course (draft)
+ */
+router.post('/:id/duplicate', protect, educatorOnly, duplicateCourse);
 
 /**
  * @openapi
