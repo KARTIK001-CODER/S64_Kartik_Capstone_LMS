@@ -1,66 +1,73 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
+import logger from '../utils/logger.js';
 
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   try {
-    // Get token from the Authorization header
     const authHeader = req.header('Authorization');
-    
-    // Check if token exists
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ 
+      return res.status(401).json({
+        success: false,
         message: 'Access denied. No token provided.',
-        error: 'AUTH_NO_TOKEN'
+        errorCode: 'AUTH_NO_TOKEN'
       });
     }
 
     const token = authHeader.substring(7);
-    
+
     if (!process.env.JWT_SECRET) {
-      console.error('JWT_SECRET is not defined in environment variables');
-      return res.status(500).json({ 
+      logger.error('JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({
+        success: false,
         message: 'Server configuration error',
-        error: 'AUTH_CONFIG_ERROR'
+        errorCode: 'AUTH_CONFIG_ERROR'
       });
     }
 
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Check if token is expired
-    if (decoded.exp && decoded.exp < Date.now() / 1000) {
-      return res.status(401).json({ 
-        message: 'Token has expired',
-        error: 'AUTH_TOKEN_EXPIRED'
+
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found',
+        errorCode: 'AUTH_USER_NOT_FOUND'
       });
     }
 
-    // Set user object with _id instead of id
     req.user = {
-      ...decoded,
-      _id: decoded.id || decoded._id // Handle both id and _id
+      _id: user._id,
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
     };
-    
+
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
+      return res.status(401).json({
+        success: false,
         message: 'Invalid token',
-        error: 'AUTH_INVALID_TOKEN'
-      });
-    }
-    
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ 
-        message: 'Token has expired',
-        error: 'AUTH_TOKEN_EXPIRED'
+        errorCode: 'AUTH_INVALID_TOKEN'
       });
     }
 
-    res.status(500).json({ 
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token has expired',
+        errorCode: 'AUTH_TOKEN_EXPIRED'
+      });
+    }
+
+    logger.error({ err: error }, 'Auth middleware error');
+    res.status(500).json({
+      success: false,
       message: 'Authentication error',
-      error: 'AUTH_ERROR'
+      errorCode: 'AUTH_ERROR'
     });
   }
 };
@@ -68,11 +75,48 @@ const protect = (req, res, next) => {
 const educatorOnly = (req, res, next) => {
   if (!req.user || req.user.role !== 'educator') {
     return res.status(403).json({
+      success: false,
       message: 'Access denied. Educator role required.',
-      error: 'AUTH_EDUCATOR_ONLY'
+      errorCode: 'AUTH_EDUCATOR_ONLY'
     });
   }
   next();
 };
 
-export { protect, educatorOnly };
+const verifyOwnership = (model, paramName = 'id') => {
+  return async (req, res, next) => {
+    try {
+      const resourceId = req.params[paramName];
+      const resource = await model.findById(resourceId);
+
+      if (!resource) {
+        return res.status(404).json({
+          success: false,
+          message: 'Resource not found',
+          errorCode: 'RESOURCE_NOT_FOUND'
+        });
+      }
+
+      const ownerField = resource.educator || resource.userId || resource.studentId;
+      if (ownerField && ownerField.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to access this resource',
+          errorCode: 'AUTH_NOT_OWNER'
+        });
+      }
+
+      req.resource = resource;
+      next();
+    } catch (error) {
+    logger.error({ err: error }, 'Ownership verification error');
+    res.status(500).json({
+        success: false,
+        message: 'Error verifying ownership',
+        errorCode: 'AUTH_OWNERSHIP_ERROR'
+      });
+    }
+  };
+};
+
+export { protect, educatorOnly, verifyOwnership };
