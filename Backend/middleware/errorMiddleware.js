@@ -1,3 +1,5 @@
+import logger from '../utils/logger.js';
+
 const notFound = (req, res, next) => {
   res.status(404);
   next(new Error(`Not Found - ${req.originalUrl}`));
@@ -5,37 +7,57 @@ const notFound = (req, res, next) => {
 
 const errorHandler = (err, req, res, next) => {
   let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-  let message = err.message;
+  let message = err.message || 'Internal Server Error';
+  let errorCode = err.errorCode || 'INTERNAL_ERROR';
+  let errors = null;
 
-  // Mongoose bad ObjectId
   if (err.name === 'CastError' && err.kind === 'ObjectId') {
     statusCode = 404;
     message = 'Resource not found';
+    errorCode = 'RESOURCE_NOT_FOUND';
   }
 
-  // Mongoose validation error
   if (err.name === 'ValidationError') {
     statusCode = 400;
-    message = Object.values(err.errors).map(e => e.message).join(', ');
+    errorCode = 'VALIDATION_ERROR';
+    errors = Object.values(err.errors).map(e => ({
+      field: e.path,
+      message: e.message,
+    }));
+    message = 'Validation failed';
   }
 
-  // Mongoose duplicate key
   if (err.code === 11000) {
     statusCode = 400;
+    errorCode = 'DUPLICATE_KEY';
     const field = Object.keys(err.keyValue).join(', ');
     message = `Duplicate value for: ${field}`;
   }
 
-  // Multer file size error
   if (err.code === 'LIMIT_FILE_SIZE') {
     statusCode = 400;
+    errorCode = 'FILE_TOO_LARGE';
     message = 'File is too large. Maximum size is 5MB';
   }
 
-  res.status(statusCode).json({
+  if (err.type === 'entity.too.large') {
+    statusCode = 413;
+    errorCode = 'PAYLOAD_TOO_LARGE';
+    message = 'Request body is too large';
+  }
+
+  logger.error({ err, req: { id: req.id, method: req.method, url: req.originalUrl }, statusCode, errorCode },
+    message);
+
+  const response = {
+    success: false,
     message,
+    errorCode,
+    ...(errors && { errors }),
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-  });
+  };
+
+  res.status(statusCode).json(response);
 };
 
 export { notFound, errorHandler };

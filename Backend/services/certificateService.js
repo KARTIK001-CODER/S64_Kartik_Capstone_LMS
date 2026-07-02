@@ -3,13 +3,12 @@ import Certificate from '../models/Certificate.js';
 import Enrollment from '../models/Enrollment.js';
 import Course from '../models/Course.js';
 import User from '../models/User.js';
+import AppError from '../utils/AppError.js';
 
 export const generateCertificate = async (studentId, courseId) => {
   const enrollment = await Enrollment.findOne({ studentId, courseId, courseCompleted: true });
   if (!enrollment) {
-    const err = new Error('Course not completed yet');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError('Course not completed yet', 400, 'COURSE_NOT_COMPLETED');
   }
 
   const existing = await Certificate.findOne({ studentId, courseId });
@@ -21,9 +20,7 @@ export const generateCertificate = async (studentId, courseId) => {
   const student = await User.findById(studentId);
 
   if (!course || !student) {
-    const err = new Error('Course or student not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Course or student not found', 404, 'NOT_FOUND');
   }
 
   const certificate = await Certificate.create({
@@ -50,9 +47,7 @@ export const getStudentCertificates = async (studentId) => {
 export const downloadCertificate = async (certificateId) => {
   const certificate = await Certificate.findOne({ certificateId });
   if (!certificate) {
-    const err = new Error('Certificate not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Certificate not found', 404, 'CERTIFICATE_NOT_FOUND');
   }
 
   const doc = new PDFDocument({

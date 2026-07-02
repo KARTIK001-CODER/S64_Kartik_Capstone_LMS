@@ -1,6 +1,7 @@
 import Enrollment from '../models/Enrollment.js';
 import Course from '../models/Course.js';
 import User from '../models/User.js';
+import AppError from '../utils/AppError.js';
 import { notifyStudentEnrollment, notifyStudentCourseCompleted, notifyEducatorNewEnrollment } from './notificationService.js';
 
 export const listEnrolledCourses = async (studentId) => {
@@ -12,16 +13,12 @@ export const listEnrolledCourses = async (studentId) => {
 export const enroll = async (studentId, courseId, { paymentId, orderId, amount }) => {
   const existing = await Enrollment.findOne({ studentId, courseId });
   if (existing) {
-    const err = new Error('Already enrolled in this course');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError('Already enrolled in this course', 400, 'ALREADY_ENROLLED');
   }
 
   const course = await Course.findById(courseId);
   if (!course) {
-    const err = new Error('Course not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
   }
 
   const enrollment = await Enrollment.create({
@@ -51,9 +48,7 @@ export const enroll = async (studentId, courseId, { paymentId, orderId, amount }
 export const getProgress = async (studentId, courseId) => {
   const enrollment = await Enrollment.findOne({ studentId, courseId });
   if (!enrollment) {
-    const err = new Error('Not enrolled in this course');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Not enrolled in this course', 404, 'NOT_ENROLLED');
   }
   return {
     progress: enrollment.progress,
@@ -68,9 +63,7 @@ export const getProgress = async (studentId, courseId) => {
 export const updateProgress = async (studentId, courseId, lectureId) => {
   const enrollment = await Enrollment.findOne({ studentId, courseId });
   if (!enrollment) {
-    const err = new Error('Not enrolled in this course');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Not enrolled in this course', 404, 'NOT_ENROLLED');
   }
 
   const progressIndex = enrollment.progress.findIndex(p => p.lectureId.toString() === lectureId);
@@ -100,9 +93,7 @@ export const updateProgress = async (studentId, courseId, lectureId) => {
 export const updateLastWatched = async (studentId, courseId, { lectureId, chapterIndex, lectureIndex }) => {
   const enrollment = await Enrollment.findOne({ studentId, courseId });
   if (!enrollment) {
-    const err = new Error('Not enrolled in this course');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Not enrolled in this course', 404, 'NOT_ENROLLED');
   }
 
   enrollment.lastWatchedLectureId = lectureId;

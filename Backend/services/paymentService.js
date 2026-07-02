@@ -4,30 +4,26 @@ import Payment from '../models/Payment.js';
 import Course from '../models/Course.js';
 import Enrollment from '../models/Enrollment.js';
 import User from '../models/User.js';
-
-const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
-const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+import AppError from '../utils/AppError.js';
 
 const getRazorpay = () => {
-  if (!razorpayKeyId || !razorpayKeySecret || razorpayKeyId === 'your_razorpay_key_id_here') {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret || keyId === 'your_razorpay_key_id_here') {
     return null;
   }
-  return new Razorpay({ key_id: razorpayKeyId, key_secret: razorpayKeySecret });
+  return new Razorpay({ key_id: keyId, key_secret: keySecret });
 };
 
 export const createOrder = async (studentId, courseId) => {
   const course = await Course.findById(courseId);
   if (!course) {
-    const err = new Error('Course not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
   }
 
   const existingEnrollment = await Enrollment.findOne({ studentId, courseId });
   if (existingEnrollment) {
-    const err = new Error('Already enrolled in this course');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError('Already enrolled in this course', 400, 'ALREADY_ENROLLED');
   }
 
   const rzp = getRazorpay();
@@ -66,13 +62,13 @@ export const createOrder = async (studentId, courseId) => {
     status: 'created',
   });
 
-  return { devMode: false, orderId: order.id, amount: amountInPaise, currency: 'INR', key: razorpayKeyId };
+  return { devMode: false, orderId: order.id, amount: amountInPaise, currency: 'INR', key: process.env.RAZORPAY_KEY_ID };
 };
 
 export const verifyPayment = async ({ razorpay_order_id, razorpay_payment_id, razorpay_signature }) => {
   const body = razorpay_order_id + '|' + razorpay_payment_id;
   const expectedSignature = crypto
-    .createHmac('sha256', razorpayKeySecret)
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
     .update(body.toString())
     .digest('hex');
 
@@ -81,16 +77,12 @@ export const verifyPayment = async ({ razorpay_order_id, razorpay_payment_id, ra
       { razorpayOrderId: razorpay_order_id },
       { status: 'failed', razorpayPaymentId: razorpay_payment_id, razorpaySignature: razorpay_signature }
     );
-    const err = new Error('Invalid payment signature');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError('Invalid payment signature', 400, 'PAYMENT_INVALID_SIGNATURE');
   }
 
   const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
   if (!payment) {
-    const err = new Error('Payment record not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Payment record not found', 404, 'PAYMENT_NOT_FOUND');
   }
 
   payment.razorpayPaymentId = razorpay_payment_id;

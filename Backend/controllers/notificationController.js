@@ -1,54 +1,51 @@
+import asyncHandler from 'express-async-handler';
 import Notification from '../models/Notification.js';
 
-// Fetch user notifications
-export const getNotifications = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const notifications = await Notification.find({ userId })
-      .sort({ createdAt: -1 });
-    res.status(200).json(notifications);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+export const getNotifications = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const notifications = await Notification.find({ userId }).sort({ createdAt: -1 });
+  res.json(notifications);
+});
 
-// Create notification
-export const createNotification = async (req, res) => {
-  try {
-    const { userId, title, message, type, link } = req.body;
-    const notification = new Notification({ userId, title, message, type, link });
-    await notification.save();
-    res.status(201).json(notification);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+export const createNotification = asyncHandler(async (req, res) => {
+  const { userId, title, message, type, link } = req.body;
 
-// Mark notification as read
-export const markAsRead = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const notification = await Notification.findByIdAndUpdate(
-      id,
-      { isRead: true },
-      { new: true }
-    );
-    res.status(200).json(notification);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  if (userId && userId !== req.user._id.toString()) {
+    res.status(403);
+    throw new Error('Not authorized to create notifications for other users');
   }
-};
 
-// Mark all as read
-export const markAllAsRead = async (req, res) => {
-  try {
-    const { userId } = req.body;
-    await Notification.updateMany(
-      { userId, isRead: false },
-      { isRead: true }
-    );
-    res.status(200).json({ message: 'All notifications marked as read' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  const notification = await Notification.create({
+    userId: userId || req.user._id,
+    title,
+    message,
+    type,
+    link,
+  });
+  res.status(201).json(notification);
+});
+
+export const markAsRead = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const notification = await Notification.findById(id);
+
+  if (!notification) {
+    res.status(404);
+    throw new Error('Notification not found');
   }
-};
+
+  if (notification.userId.toString() !== req.user._id.toString()) {
+    res.status(403);
+    throw new Error('Not authorized to modify this notification');
+  }
+
+  notification.isRead = true;
+  await notification.save();
+  res.json(notification);
+});
+
+export const markAllAsRead = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  await Notification.updateMany({ userId, isRead: false }, { isRead: true });
+  res.json({ message: 'All notifications marked as read' });
+});
