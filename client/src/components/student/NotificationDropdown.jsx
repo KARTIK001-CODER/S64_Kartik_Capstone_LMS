@@ -1,24 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, CheckCircle, Clock } from 'lucide-react';
+import { Bell, Clock } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
+import { Badge } from '../ui/badge';
 
 const NotificationDropdown = () => {
-  const { 
-    notifications, 
-    unreadCount, 
-    markNotificationRead, 
-    markAllNotificationsRead 
-  } = useAppContext();
-  
+  const { notifications, unreadCount, markNotificationRead, markAllNotificationsRead } = useAppContext();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setIsOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -26,77 +18,85 @@ const NotificationDropdown = () => {
 
   const formatTimestamp = (timestamp) => {
     const date = new Date(timestamp);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Bell Icon */}
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-blue-600 transition-colors focus:outline-none"
+        className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
       >
-        <Bell size={24} />
+        <Bell size={20} />
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full">
+          <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-error text-[10px] font-bold text-white flex items-center justify-center">
             {unreadCount}
           </span>
         )}
       </button>
 
-      {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-100 z-50 overflow-hidden transform origin-top-right transition-all duration-200">
-          <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-            <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
+        <div className="absolute right-0 mt-2 w-80 rounded-xl border border-border bg-card shadow-xl z-50 animate-scale-in overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/30">
+            <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
             {unreadCount > 0 && (
-              <button 
+              <button
                 onClick={markAllNotificationsRead}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                className="text-xs text-primary font-medium hover:text-primary/80 transition-colors"
               >
-                Mark all as read
+                Mark all read
               </button>
             )}
           </div>
 
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <Bell size={40} className="mx-auto mb-2 opacity-20" />
-                <p>No notifications yet</p>
+              <div className="py-10 text-center text-muted-foreground">
+                <Bell size={32} className="mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No notifications yet</p>
               </div>
             ) : (
               notifications.map((notification) => (
-                <div 
+                <div
                   key={notification._id}
                   onClick={() => markNotificationRead(notification._id)}
-                  className={`p-4 border-b border-gray-50 cursor-pointer transition-colors hover:bg-gray-50 ${
-                    !notification.isRead ? 'bg-blue-50/30' : ''
+                  className={`px-4 py-3 border-b border-border last:border-0 cursor-pointer transition hover:bg-accent ${
+                    !notification.isRead ? 'bg-primary/[0.02]' : ''
                   }`}
                 >
-                  <div className="flex items-start justify-between">
-                    <h4 className={`text-sm font-semibold ${!notification.isRead ? 'text-blue-900' : 'text-gray-700'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className={`text-sm font-medium ${
+                      !notification.isRead ? 'text-foreground' : 'text-muted-foreground'
+                    }`}>
                       {notification.title}
                     </h4>
                     {!notification.isRead && (
-                      <span className="h-2 w-2 bg-blue-500 rounded-full mt-1.5"></span>
+                      <span className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
                     )}
                   </div>
-                  <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                    {notification.message}
-                  </p>
-                  <div className="flex items-center mt-2 text-xs text-gray-400">
-                    <Clock size={12} className="mr-1" />
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{notification.message}</p>
+                  <div className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground/60">
+                    <Clock size={10} />
                     {formatTimestamp(notification.createdAt)}
                   </div>
                 </div>
               ))
             )}
           </div>
-          
-          <div className="p-2 border-t border-gray-100 text-center bg-gray-50">
-            <button className="text-sm text-gray-500 hover:text-gray-700">
-              View all
+
+          <div className="p-2 border-t border-border text-center bg-muted/30">
+            <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              View all notifications
             </button>
           </div>
         </div>

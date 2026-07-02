@@ -1,36 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { assets } from '../../assets/assets';
+import { useNavigate, Link } from 'react-router-dom';
+import { PlusCircle, Edit3, Trash2, Eye, ExternalLink } from 'lucide-react';
 import axios from 'axios';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Skeleton } from '../../components/ui/skeleton';
+import { EmptyState, ErrorState } from '../../components/ui/empty-state';
+import { Avatar } from '../../components/ui/avatar';
 
-// Create axios instance with default config
 const api = axios.create({
-  baseURL: 'http://localhost:5000',
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
+  headers: { 'Content-Type': 'application/json' }
 });
 
-// Add request interceptor to add token to all requests
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
-// Add response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear auth data and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -40,70 +33,66 @@ api.interceptors.response.use(
 );
 
 const MyCourses = () => {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(null);
-  const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(null);
+  const [imgErrors, setImgErrors] = useState({});
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          navigate('/login');
-          return;
-        }
+  const fetchCourses = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/api/courses/educator');
+      const data = response.data?.courses || response.data;
+      setCourses(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch courses');
+      setCourses([]);
+    } finally { setLoading(false); }
+  };
 
-        const response = await api.get('/api/courses/educator');
+  useEffect(() => { fetchCourses(); }, []);
 
-        if (response.data?.courses) {
-          setCourses(response.data.courses);
-        } else if (Array.isArray(response.data)) {
-          setCourses(response.data);
-        } else {
-          setCourses([]);
-        }
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching courses:', err);
-        setError('Failed to fetch courses. Please try again later.');
-        setCourses([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCourses();
-  }, [navigate]);
-
-  const handleDeleteCourse = async (courseId) => {
-    if (!window.confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
-      return;
-    }
-
-    setDeleteLoading(courseId);
+  const handleDelete = async (courseId) => {
+    if (!window.confirm('Are you sure you want to delete this course?')) return;
+    setDeleting(courseId);
     try {
       await api.delete(`/api/courses/${courseId}`);
-      setCourses(prev => prev.filter(course => course._id !== courseId));
+      setCourses(prev => prev.filter(c => c._id !== courseId));
     } catch (err) {
-      console.error('Error deleting course:', err);
-      alert('Failed to delete course. Please try again.');
-    } finally {
-      setDeleteLoading(null);
+      alert(err.response?.data?.message || 'Failed to delete course');
+    } finally { setDeleting(null); }
+  };
+
+  const handleTogglePublish = async (course) => {
+    try {
+      const res = await api.put(`/api/courses/${course._id}`, {
+        ...course,
+        isPublished: !course.isPublished,
+        courseContent: undefined
+      });
+      setCourses(prev => prev.map(c => c._id === course._id ? { ...c, isPublished: res.data?.isPublished ?? !course.isPublished } : c));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update course');
     }
   };
 
-  const handleEditCourse = (courseId) => {
-    navigate(`/educator/edit-course/${courseId}`);
-  };
+  const defaultThumbnail = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400';
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <div className="p-6 space-y-6">
+        <Skeleton variant="heading" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="rounded-xl border border-border p-4 space-y-4">
+              <Skeleton variant="thumbnail" />
+              <Skeleton variant="title" />
+              <Skeleton variant="text" />
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -111,100 +100,92 @@ const MyCourses = () => {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-lg shadow-md">
-          <p className="text-red-600 text-lg mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
-          >
-            Retry
-          </button>
-        </div>
+      <div className="p-6">
+        <ErrorState title="Failed to load courses" description={error} onRetry={fetchCourses} />
       </div>
     );
   }
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">My Courses</h2>
-            <button
-              onClick={() => navigate('/educator/add-course')}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
-            >
-              Add New Course
-            </button>
-          </div>
-          
-          {courses.length > 0 ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 text-gray-600">
-                    <th className="py-3 px-4 text-left font-medium">Thumbnail</th>
-                    <th className="py-3 px-4 text-left font-medium">Title</th>
-                    <th className="py-3 px-4 text-left font-medium">Price</th>
-                    <th className="py-3 px-4 text-left font-medium">Status</th>
-                    <th className="py-3 px-4 text-left font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {courses.map((course) => (
-                    <tr key={course._id} className="border-b last:border-b-0 hover:bg-gray-50">
-                      <td className="py-3 px-4">
-                        <img
-                          src={course.courseThumbnail || assets.course_1_thumbnail}
-                          alt={course.courseTitle}
-                          className="w-16 h-10 rounded object-cover border"
-                          onError={e => { e.target.onerror = null; e.target.src = assets.course_1_thumbnail; }}
-                        />
-                      </td>
-                      <td className="py-3 px-4 font-medium text-gray-800">{course.courseTitle}</td>
-                      <td className="py-3 px-4">${course.coursePrice.toFixed(2)}</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          course.isPublished 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {course.isPublished ? 'Published' : 'Draft'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEditCourse(course._id)}
-                            className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition-colors duration-200"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteCourse(course._id)}
-                            disabled={deleteLoading === course._id}
-                            className="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {deleteLoading === course._id ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-16 bg-white rounded-lg shadow-md border border-gray-100">
-              <p className="text-xl text-gray-600">No courses found</p>
-              <button
-                onClick={() => navigate('/educator/add-course')}
-                className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 font-medium"
-              >
-                Create Your First Course
-              </button>
-            </div>
-          )}
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">My Courses</h1>
+          <p className="text-muted-foreground mt-1">Manage your course catalog</p>
         </div>
+        <Button onClick={() => navigate('/educator/add-course')}>
+          <PlusCircle size={16} />
+          Add Course
+        </Button>
+      </div>
+
+      {courses.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {courses.map((course) => {
+            const enrolledCount = course.enrolledStudents?.length || 0;
+            return (
+              <Card key={course._id} variant="default" padding="none" className="overflow-hidden">
+                <div className="relative h-40 overflow-hidden bg-muted">
+                  <img
+                    src={imgErrors[course._id] ? defaultThumbnail : (course.courseThumbnail || defaultThumbnail)}
+                    alt={course.courseTitle}
+                    className="w-full h-full object-cover"
+                    onError={() => setImgErrors(prev => ({ ...prev, [course._id]: true }))}
+                    loading="lazy"
+                  />
+                  <div className="absolute top-3 right-3">
+                    <Badge variant={course.isPublished ? 'success' : 'neutral'} size="sm">
+                      {course.isPublished ? 'Published' : 'Draft'}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-foreground text-sm leading-snug mb-1 line-clamp-2">
+                    {course.courseTitle}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    ${course.coursePrice?.toFixed(2)} &bull; {enrolledCount} student{enrolledCount !== 1 ? 's' : ''}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/educator/edit-course/${course._id}`)}>
+                      <Edit3 size={14} />
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleTogglePublish(course)}>
+                      <Eye size={14} />
+                      {course.isPublished ? 'Unpublish' : 'Publish'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(course._id)}
+                      loading={deleting === course._id}
+                      className="text-muted-foreground hover:text-error"
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => window.open(`/courses/${course._id}`, '_blank')}>
+                      <ExternalLink size={14} />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <EmptyState
+          title="No courses yet"
+          description="Create your first course to start teaching."
+          action={
+            <Button onClick={() => navigate('/educator/add-course')}>
+              <PlusCircle size={16} />
+              Create Course
+            </Button>
+          }
+        />
+      )}
+    </div>
   );
 };
 

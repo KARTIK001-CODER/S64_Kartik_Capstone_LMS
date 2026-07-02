@@ -1,211 +1,249 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, ChevronDown } from "lucide-react";
 import logo from "../../assets/logo.svg";
-import { assets } from "../../assets/assets";
 import { AppContext } from "../../context/AppContext";
+import { Button } from "../ui/button";
+import { Avatar } from "../ui/avatar";
+import ThemeToggle from "../ui/ThemeToggle";
 import NotificationDropdown from "./NotificationDropdown";
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isEducator, logout } = useContext(AppContext);
-  const isCourseListPage = location.pathname.includes("/courses-list");
+  const { user, logout } = useContext(AppContext);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  const isHome = location.pathname === "/";
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+    setShowDropdown(false);
+  }, [location]);
 
   const handleLogout = () => {
     logout();
     navigate("/");
   };
 
-  const getInitials = (name) => {
-    if (!name) return 'U';
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
+  const navLinks = user
+    ? [
+        { label: "Browse Courses", path: "/courses-list" },
+        ...(user.role === "student"
+          ? [
+              { label: "Dashboard", path: "/dashboard" },
+              { label: "My Learning", path: "/my-enrollments" },
+            ]
+          : []),
+        ...(user.role === "educator"
+          ? [
+              { label: "Educator", path: "/educator/dashboard" },
+              { label: "My Courses", path: "/educator/my-courses" },
+            ]
+          : []),
+      ]
+    : [{ label: "Browse Courses", path: "/courses-list" }];
 
   return (
-    <div
-      className={`sticky top-0 z-50 flex items-center justify-between px-4 sm:px-10 md:px-14 lg:px-36 border-b border-gray-200 py-4 shadow-md ${
-        isCourseListPage ? "bg-white" : "bg-cyan-100"
+    <header
+      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
+        scrolled || !isHome
+          ? "bg-background/80 backdrop-blur-xl border-b border-border shadow-xs"
+          : "bg-transparent"
       }`}
-      style={{ backdropFilter: "blur(8px)" }}
     >
-      <Link to="/">
-        <img src={logo} alt="logo" className="w-28 lg:w-32 cursor-pointer" />
-      </Link>
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+          <img src={logo} alt="Learnova" className="h-8 w-auto" />
+        </Link>
 
-      <div className="hidden md:flex items-center gap-5 text-gray-500">
-        <div className="flex items-center gap-5">
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-1">
+          {navLinks.map((link) => (
+            <Link
+              key={link.path}
+              to={link.path}
+              className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                location.pathname === link.path
+                  ? "text-foreground bg-accent"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="hidden md:flex items-center gap-3">
+          <ThemeToggle />
           {user ? (
             <>
-              {user.role === "educator" ? (
-                <Link to="/educator/dashboard" className="hover:text-blue-600 transition">
-                  Educator Dashboard
-                </Link>
-              ) : (
-                <button
+              {user.role === "student" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => navigate("/educator")}
-                  className="hover:text-blue-600 transition"
                 >
-                  Become Educator
-                </button>
+                  Become an Educator
+                </Button>
               )}
-              {user.role === "educator" ? (
-                <Link to="/educator/reports" className="hover:text-blue-600 transition">
-                  Reports
-                </Link>
-              ) : (
-                <Link to="/dashboard" className="hover:text-blue-600 transition">
-                  Dashboard
-                </Link>
-              )}
-              <Link to="/my-enrollments" className="hover:text-blue-600 transition">
-                My Enrollments
-              </Link>
-              {user.role === "educator" && (
-                <Link to="/educator/my-courses" className="hover:text-blue-600 transition">
-                  My Courses
-                </Link>
-              )}
-              <Link to="/courses-list" className="hover:text-blue-600 transition">
-                Browse Courses
-              </Link>
-            </>
-          ) : (
-            <Link to="/courses-list" className="hover:text-blue-600 transition">
-              Browse Courses
-            </Link>
-          )}
-        </div>
-
-        {user && <NotificationDropdown />}
-
-        {user ? (
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <button
-                onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 focus:outline-none"
-              >
-                <span className="text-gray-700">
-                  {user.name || user.email.split('@')[0]}
-                </span>
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">
-                  {getInitials(user.name)}
-                </div>
-              </button>
-
-              {showDropdown && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 border border-gray-200">
-                  <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                    <p className="text-xs text-gray-500">{user.email}</p>
-                  </div>
-                  <Link
-                    to="/profile"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setShowDropdown(false)}
-                  >
-                    Profile Settings
-                  </Link>
-                  {user.role === "educator" && (
-                    <Link
-                      to="/educator/settings"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowDropdown(false)}
-                    >
-                      Educator Settings
-                    </Link>
-                  )}
-                  <button
-                    onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <Link
-              to="/login"
-              className="text-blue-600 hover:underline transition"
-            >
-              Login
-            </Link>
-            <Link
-              to="/register"
-              className="bg-blue-600 text-white px-5 py-2 rounded-full hover:bg-blue-700 transition duration-300"
-            >
-              Register
-            </Link>
-          </div>
-        )}
-      </div>
-
-      {/* Mobile Navigation */}
-      <div className="md:hidden flex items-center gap-2 sm:gap-5 text-gray-500">
-        {user && <NotificationDropdown />}
-        <div className="flex items-center gap-1 sm:gap-2 max-sm:text-xs">
-          {user ? (
-            <>
-              <div className="relative">
+              <NotificationDropdown />
+              <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setShowDropdown(!showDropdown)}
-                  className="focus:outline-none"
+                  className="flex items-center gap-2 rounded-lg hover:bg-accent p-1.5 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm">
-                    {getInitials(user.name)}
-                  </div>
+                  <Avatar
+                    size="sm"
+                    alt={user.name}
+                    initials={user.name?.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)}
+                  />
+                  <ChevronDown size={14} className="text-muted-foreground" />
                 </button>
 
                 {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 border border-gray-200">
-                    <div className="px-3 py-2 border-b border-gray-100">
-                      <p className="text-xs font-medium text-gray-900">{user.name}</p>
-                      <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-card shadow-lg animate-scale-in overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {user.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        {user.email}
+                      </p>
                     </div>
-                    <Link
-                      to="/profile"
-                      className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowDropdown(false)}
-                    >
-                      Profile Settings
-                    </Link>
-                    {user.role === "educator" && (
+                    <div className="p-1">
                       <Link
-                        to="/educator/settings"
-                        className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowDropdown(false)}
+                        to="/profile"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-foreground rounded-md hover:bg-accent transition-colors"
                       >
-                        Educator Settings
+                        Profile
                       </Link>
-                    )}
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-gray-100"
-                    >
-                      Logout
-                    </button>
+                      <Link
+                        to={user.role === "educator" ? "/educator/settings" : "/settings"}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-foreground rounded-md hover:bg-accent transition-colors"
+                      >
+                        Settings
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-error rounded-md hover:bg-error/5 transition-colors"
+                      >
+                        Log out
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             </>
           ) : (
-            <Link to="/login">
-              <img src={assets.user_icon} alt="User" className="w-6 h-6" />
-            </Link>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/login")}
+              >
+                Log in
+              </Button>
+              <Button size="sm" onClick={() => navigate("/register")}>
+                Get started
+              </Button>
+            </>
           )}
         </div>
+
+        {/* Mobile menu button */}
+        <button
+          onClick={() => setMobileOpen(!mobileOpen)}
+          className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+        >
+          {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
       </div>
-    </div>
+
+      {/* Mobile nav */}
+      {mobileOpen && (
+        <div className="md:hidden border-t border-border bg-background animate-slide-down">
+          <div className="px-4 py-3 space-y-1">
+            {navLinks.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={`block px-3 py-2.5 text-sm font-medium rounded-md transition-colors ${
+                  location.pathname === link.path
+                    ? "text-foreground bg-accent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+          <div className="border-t border-border px-4 py-3 flex flex-col gap-2">
+            {user ? (
+              <>
+                <div className="flex items-center gap-3 px-3 py-2">
+                  <Avatar size="sm" alt={user.name} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {user.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  to="/profile"
+                  className="block px-3 py-2.5 text-sm text-foreground rounded-md hover:bg-accent transition-colors"
+                >
+                  Profile
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left px-3 py-2.5 text-sm text-error rounded-md hover:bg-error/5 transition-colors"
+                >
+                  Log out
+                </button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => navigate("/login")}
+                  className="w-full"
+                >
+                  Log in
+                </Button>
+                <Button size="md" onClick={() => navigate("/register")} className="w-full">
+                  Get started
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </header>
   );
 };
 

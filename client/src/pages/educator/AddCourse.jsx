@@ -1,5 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Plus, Trash2, ChevronDown, ChevronRight, Upload, X, Video, BookOpen, Save } from 'lucide-react';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 const AddCourse = () => {
   const navigate = useNavigate();
@@ -14,8 +21,10 @@ const AddCourse = () => {
   });
 
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('error');
   const fileInputRef = useRef();
   const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [expandedChapters, setExpandedChapters] = useState({});
   const [currentChapter, setCurrentChapter] = useState({
     title: '',
     description: '',
@@ -29,36 +38,20 @@ const AddCourse = () => {
     isPreviewFree: false
   });
 
+  const showMessage = (msg, type = 'error') => {
+    setMessage(msg);
+    setMessageType(type);
+  };
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  const handleChapterChange = (e) => {
-    const { name, value } = e.target;
-    setCurrentChapter(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleLectureChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setCurrentLecture(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const addLecture = () => {
     if (!currentLecture.title || !currentLecture.videoUrl || !currentLecture.duration) {
-      setMessage('Please fill in all required lecture fields');
-      return;
+      showMessage('Please fill in all required lecture fields'); return;
     }
-
     setCurrentChapter(prev => ({
       ...prev,
       lectures: [...prev.lectures, {
@@ -70,63 +63,41 @@ const AddCourse = () => {
         order: prev.lectures.length
       }]
     }));
-
-    setCurrentLecture({
-      title: '',
-      description: '',
-      videoUrl: '',
-      duration: '',
-      isPreviewFree: false
-    });
+    setCurrentLecture({ title: '', description: '', videoUrl: '', duration: '', isPreviewFree: false });
   };
 
   const addChapter = () => {
     if (!currentChapter.title || currentChapter.lectures.length === 0) {
-      setMessage('Please add a title and at least one lecture to the chapter');
-      return;
+      showMessage('Please add a title and at least one lecture'); return;
     }
-
     setForm(prev => ({
       ...prev,
-      courseContent: [...prev.courseContent, {
-        title: currentChapter.title,
-        description: currentChapter.description,
-        lectures: currentChapter.lectures,
-        order: prev.courseContent.length
-      }]
+      courseContent: [...prev.courseContent, { title: currentChapter.title, description: currentChapter.description, lectures: currentChapter.lectures, order: prev.courseContent.length }]
     }));
+    setCurrentChapter({ title: '', description: '', lectures: [] });
+    setMessage('');
+  };
 
-    setCurrentChapter({
-      title: '',
-      description: '',
-      lectures: []
+  const removeLecture = (chapterIdx, lectureIdx) => {
+    setForm(prev => {
+      const content = [...prev.courseContent];
+      content[chapterIdx].lectures.splice(lectureIdx, 1);
+      return { ...prev, courseContent: content };
     });
   };
 
-  const removeLecture = (chapterIndex, lectureIndex) => {
+  const removeChapter = (idx) => {
     setForm(prev => {
-      const updatedContent = [...prev.courseContent];
-      updatedContent[chapterIndex].lectures.splice(lectureIndex, 1);
-      return { ...prev, courseContent: updatedContent };
-    });
-  };
-
-  const removeChapter = (index) => {
-    setForm(prev => {
-      const updatedContent = [...prev.courseContent];
-      updatedContent.splice(index, 1);
-      return { ...prev, courseContent: updatedContent };
+      const content = [...prev.courseContent];
+      content.splice(idx, 1);
+      return { ...prev, courseContent: content };
     });
   };
 
   const handleThumbnailChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setThumbnailFile(file);
-      setForm(prev => ({
-        ...prev,
-        courseThumbnail: URL.createObjectURL(file)
-      }));
+    if (e.target.files?.[0]) {
+      setThumbnailFile(e.target.files[0]);
+      setForm(prev => ({ ...prev, courseThumbnail: URL.createObjectURL(e.target.files[0]) }));
     }
   };
 
@@ -134,22 +105,16 @@ const AddCourse = () => {
     e.preventDefault();
     setMessage('');
 
-    if (!form.courseTitle || !form.courseDescription || !form.coursePrice || !form.courseThumbnail) {
-      setMessage('Please fill in all required fields');
-      return;
+    if (!form.courseTitle || !form.courseDescription || !form.coursePrice) {
+      showMessage('Please fill in all required fields'); return;
     }
-
     if (form.courseContent.length === 0) {
-      setMessage('Please add at least one chapter with lectures');
-      return;
+      showMessage('Please add at least one chapter with lectures'); return;
     }
 
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        setMessage('Authentication token not found. Please log in again.');
-        return;
-      }
+      if (!token) { showMessage('Authentication token not found'); return; }
 
       const formData = new FormData();
       formData.append('courseTitle', form.courseTitle);
@@ -158,282 +123,168 @@ const AddCourse = () => {
       formData.append('discount', Number(form.discount));
       formData.append('isPublished', form.isPublished);
       formData.append('courseContent', JSON.stringify(form.courseContent));
+      if (thumbnailFile) formData.append('courseThumbnail', thumbnailFile);
 
-      if (thumbnailFile) {
-        formData.append('courseThumbnail', thumbnailFile);
-      } else if (form.courseThumbnail) {
-        formData.append('courseThumbnail', form.courseThumbnail);
-      }
-
-      const res = await fetch('http://localhost:5000/api/courses', {
+      const res = await fetch(`${API_BASE}/api/courses`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData
       });
-
       const data = await res.json();
       if (res.ok) {
-        setMessage('Course added successfully!');
-        navigate('/educator/my-courses');
+        showMessage('Course created successfully!', 'success');
+        setTimeout(() => navigate('/educator/my-courses'), 1500);
       } else {
-        setMessage(data.message || data.error || 'Failed to add course');
+        showMessage(data.message || data.error || 'Failed to create course');
       }
     } catch (err) {
-      setMessage(`Error connecting to server: ${err.message}`);
+      showMessage(`Error: ${err.message}`);
     }
   };
 
   return (
-    <div className="p-8">
-      <form onSubmit={handleSubmit} className="w-full max-w-4xl space-y-6">
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Create Course</h1>
+        <p className="text-muted-foreground mt-1">Add a new course to your catalog</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Info */}
+        <Card variant="default" padding="md">
+          <CardTitle className="text-base mb-4">Basic Information</CardTitle>
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Course Title</label>
-              <input
-                name="courseTitle"
-                value={form.courseTitle}
-                onChange={handleChange}
-                placeholder="Type here"
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-black"
-              />
+              <label className="block text-sm font-medium text-foreground mb-1.5">Course Title *</label>
+              <input name="courseTitle" value={form.courseTitle} onChange={handleChange} placeholder="e.g. Advanced JavaScript" className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
             </div>
-
             <div>
-              <label className="block text-sm font-medium mb-1">Course Description</label>
-              <textarea
-                name="courseDescription"
-                value={form.courseDescription}
-                onChange={handleChange}
-                placeholder="Enter course description"
-                rows={6}
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-black resize-none"
-              />
+              <label className="block text-sm font-medium text-foreground mb-1.5">Description *</label>
+              <textarea name="courseDescription" value={form.courseDescription} onChange={handleChange} placeholder="Describe your course..." rows={5} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary resize-none" />
             </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">Course Price</label>
-                <input
-                  name="coursePrice"
-                  value={form.coursePrice}
-                  onChange={handleChange}
-                  placeholder="0"
-                  type="number"
-                  min="0"
-                  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-black"
-                />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Price ($) *</label>
+                <input name="coursePrice" value={form.coursePrice} onChange={handleChange} type="number" min="0" step="0.01" placeholder="49.99" className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
               </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">Discount (%)</label>
-                <input
-                  name="discount"
-                  value={form.discount}
-                  onChange={handleChange}
-                  placeholder="0"
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-black"
-                />
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Discount (%)</label>
+                <input name="discount" value={form.discount} onChange={handleChange} type="number" min="0" max="100" placeholder="0" className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
               </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm">Course Thumbnail</span>
-              <button
-                type="button"
-                className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-2 rounded flex items-center"
-                onClick={() => fileInputRef.current.click()}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m-4.5 4.5h9" />
-                </svg>
-              </button>
-              <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef}
-                className="hidden"
-                onChange={handleThumbnailChange}
-              />
-              {form.courseThumbnail && (
-                <img src={form.courseThumbnail} alt="Thumbnail Preview" className="w-12 h-8 object-cover rounded border" />
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="isPublished"
-                checked={form.isPublished}
-                onChange={handleChange}
-                className="rounded border-gray-300"
-              />
-              <label className="text-sm font-medium">Publish Course</label>
-            </div>
-
-            {/* Chapter and Lecture Management */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-medium mb-4">Course Content</h3>
-              
-              {/* Current Chapter Form */}
-              <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                <h4 className="font-medium mb-2">Add Chapter</h4>
-                <div className="space-y-4">
-                  <input
-                    name="title"
-                    value={currentChapter.title}
-                    onChange={handleChapterChange}
-                    placeholder="Chapter Title"
-                    className="w-full border border-gray-300 rounded px-3 py-2"
-                  />
-                  <textarea
-                    name="description"
-                    value={currentChapter.description}
-                    onChange={handleChapterChange}
-                    placeholder="Chapter Description"
-                    className="w-full border border-gray-300 rounded px-3 py-2"
-                  />
-
-                  {/* Current Lecture Form */}
-                  <div className="bg-white p-4 rounded-lg">
-                    <h5 className="font-medium mb-2">Add Lecture</h5>
-                    <div className="space-y-4">
-                      <input
-                        name="title"
-                        value={currentLecture.title}
-                        onChange={handleLectureChange}
-                        placeholder="Lecture Title"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      />
-                      <textarea
-                        name="description"
-                        value={currentLecture.description}
-                        onChange={handleLectureChange}
-                        placeholder="Lecture Description"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      />
-                      <input
-                        name="videoUrl"
-                        value={currentLecture.videoUrl}
-                        onChange={handleLectureChange}
-                        placeholder="Video URL"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      />
-                      <input
-                        name="duration"
-                        value={currentLecture.duration}
-                        onChange={handleLectureChange}
-                        placeholder="Duration (in minutes)"
-                        type="number"
-                        min="0"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      />
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          name="isPreviewFree"
-                          checked={currentLecture.isPreviewFree}
-                          onChange={handleLectureChange}
-                          className="rounded border-gray-300"
-                        />
-                        <label className="text-sm">Free Preview</label>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={addLecture}
-                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                      >
-                        Add Lecture
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Current Chapter's Lectures List */}
-                  {currentChapter.lectures.length > 0 && (
-                    <div className="mt-4">
-                      <h5 className="font-medium mb-2">Current Chapter's Lectures</h5>
-                      <ul className="space-y-2">
-                        {currentChapter.lectures.map((lecture, index) => (
-                          <li key={index} className="flex items-center justify-between bg-white p-2 rounded">
-                            <span>{lecture.title}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updatedLectures = [...currentChapter.lectures];
-                                updatedLectures.splice(index, 1);
-                                setCurrentChapter(prev => ({ ...prev, lectures: updatedLectures }));
-                              }}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              Remove
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={addChapter}
-                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                  >
-                    Add Chapter
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Thumbnail</label>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => fileInputRef.current.click()} className="h-10 px-3 rounded-lg border border-input bg-background text-sm text-muted-foreground hover:bg-accent transition-colors flex items-center gap-2">
+                    <Upload size={14} /> Upload
                   </button>
+                  {form.courseThumbnail && <img src={form.courseThumbnail} alt="Preview" className="h-10 w-16 object-cover rounded border border-border" />}
+                </div>
+                <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={handleThumbnailChange} />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="isPublished" checked={form.isPublished} onChange={handleChange} className="rounded border-input text-primary focus:ring-primary" />
+              Publish immediately
+            </label>
+          </div>
+        </Card>
+
+        {/* Course Content */}
+        <Card variant="default" padding="md">
+          <CardTitle className="text-base mb-4">Course Content</CardTitle>
+
+          {/* Add Chapter */}
+          <div className="rounded-lg border border-border p-4 mb-4 bg-muted/20">
+            <h4 className="text-sm font-semibold text-foreground mb-3">New Chapter</h4>
+            <div className="space-y-3">
+              <input name="title" value={currentChapter.title} onChange={(e) => setCurrentChapter(prev => ({ ...prev, title: e.target.value }))} placeholder="Chapter title" className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+              <textarea name="description" value={currentChapter.description} onChange={(e) => setCurrentChapter(prev => ({ ...prev, description: e.target.value }))} placeholder="Chapter description (optional)" rows={2} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary resize-none" />
+
+              {/* Lectures */}
+              <div className="rounded-lg border border-border bg-card p-3">
+                <h5 className="text-xs font-semibold text-muted-foreground uppercase mb-3">Add Lecture</h5>
+                <div className="space-y-3">
+                  <input name="lectureTitle" value={currentLecture.title} onChange={(e) => setCurrentLecture(prev => ({ ...prev, title: e.target.value }))} placeholder="Lecture title *" className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+                  <input name="videoUrl" value={currentLecture.videoUrl} onChange={(e) => setCurrentLecture(prev => ({ ...prev, videoUrl: e.target.value }))} placeholder="YouTube URL *" className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+                  <div className="flex items-center gap-3">
+                    <input name="duration" value={currentLecture.duration} onChange={(e) => setCurrentLecture(prev => ({ ...prev, duration: e.target.value }))} type="number" min="0" placeholder="Duration (min) *" className="w-40 h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+                    <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <input type="checkbox" checked={currentLecture.isPreviewFree} onChange={(e) => setCurrentLecture(prev => ({ ...prev, isPreviewFree: e.target.checked }))} className="rounded border-input text-primary focus:ring-primary" />
+                      Free preview
+                    </label>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addLecture}>
+                    <Plus size={14} /> Add Lecture
+                  </Button>
                 </div>
               </div>
 
-              {/* Added Chapters List */}
-              {form.courseContent.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="font-medium mb-2">Added Chapters</h4>
-                  <div className="space-y-4">
-                    {form.courseContent.map((chapter, chapterIndex) => (
-                      <div key={chapterIndex} className="bg-white p-4 rounded-lg border">
-                        <div className="flex items-center justify-between mb-2">
-                          <h5 className="font-medium">{chapter.title}</h5>
-                          <button
-                            type="button"
-                            onClick={() => removeChapter(chapterIndex)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            Remove Chapter
-                          </button>
+              {/* Current chapter's lectures */}
+              {currentChapter.lectures.length > 0 && (
+                <div className="space-y-1">
+                  {currentChapter.lectures.map((lec, idx) => (
+                    <div key={idx} className="flex items-center justify-between rounded bg-muted/50 px-3 py-2 text-sm">
+                      <span className="flex items-center gap-2"><Video size={12} className="text-muted-foreground" /> {lec.title}</span>
+                      <button type="button" onClick={() => {
+                        const updated = [...currentChapter.lectures]; updated.splice(idx, 1);
+                        setCurrentChapter(prev => ({ ...prev, lectures: updated }));
+                      }} className="text-muted-foreground hover:text-error"><X size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button type="button" onClick={addChapter} disabled={!currentChapter.title || currentChapter.lectures.length === 0}>
+                <BookOpen size={14} /> Add Chapter
+              </Button>
+            </div>
+          </div>
+
+          {/* Existing chapters */}
+          {form.courseContent.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-foreground">Course Chapters ({form.courseContent.length})</h4>
+              {form.courseContent.map((chapter, chapterIdx) => (
+                <div key={chapterIdx} className="rounded-lg border border-border overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <BookOpen size={14} className="text-primary" />
+                      <span className="text-sm font-medium text-foreground">{chapter.title}</span>
+                      <Badge variant="neutral" size="sm">{chapter.lectures.length} lectures</Badge>
+                    </div>
+                    <button type="button" onClick={() => removeChapter(chapterIdx)} className="p-1 text-muted-foreground hover:text-error rounded"><Trash2 size={14} /></button>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {chapter.lectures.map((lecture, lectureIdx) => (
+                      <div key={lectureIdx} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <Video size={12} /> {lecture.title}
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground">{lecture.duration} min</span>
+                          {lecture.isPreviewFree && <Badge variant="warning" size="sm">Free</Badge>}
+                          <button type="button" onClick={() => removeLecture(chapterIdx, lectureIdx)} className="p-0.5 text-muted-foreground hover:text-error"><X size={12} /></button>
                         </div>
-                        <p className="text-sm text-gray-600 mb-2">{chapter.description}</p>
-                        <ul className="space-y-2">
-                          {chapter.lectures.map((lecture, lectureIndex) => (
-                            <li key={lectureIndex} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                              <span>{lecture.title}</span>
-                              <button
-                                type="button"
-                                onClick={() => removeLecture(chapterIndex, lectureIndex)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                Remove
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
                       </div>
                     ))}
                   </div>
                 </div>
-              )}
-            </div>
-
-            <button type="submit" className="bg-black text-white px-8 py-2 rounded mt-2">
-              Create Course
-            </button>
-          </form>
-          {message && (
-            <div className={`mt-4 text-center ${message.includes('success') ? 'text-green-500' : 'text-red-500'}`}>
-              {message}
+              ))}
             </div>
           )}
+        </Card>
+
+        {/* Submit */}
+        <div className="flex items-center justify-between">
+          <Button type="submit" size="lg">
+            <Save size={16} /> Create Course
+          </Button>
+          {message && (
+            <p className={`text-sm ${messageType === 'success' ? 'text-success' : 'text-error'}`}>{message}</p>
+          )}
         </div>
+      </form>
+    </div>
   );
 };
 

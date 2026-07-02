@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import GoogleAuth from './GoogleAuth';
-
+import { Button } from './ui/button';
+import logo from '../assets/logo.svg';
 
 const AuthForm = ({ isLogin }) => {
   const initialForm = isLogin
     ? { email: '', password: '' }
-    : { name: '', email: '', password: '', role: 'student' };
+    : { name: '', email: '', password: '' };
 
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { setUser, setIsEducator } = useAppContext();
 
-  // Show redirect message from ProtectedRoute
   useEffect(() => {
     if (location.state?.message) {
       setMessage(location.state.message);
@@ -25,24 +27,18 @@ const AuthForm = ({ isLogin }) => {
     }
   }, [location.state]);
 
-  // Handle token from Google OAuth callback
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const token = params.get('token');
-
     if (token) {
       try {
-        // Store token and user data
         localStorage.setItem('token', token);
         const user = JSON.parse(atob(token.split('.')[1]));
         localStorage.setItem('user', JSON.stringify(user));
         setUser(user);
         setIsEducator(user.role === 'educator');
-
-        // Redirect based on role
-        navigate(user.role === 'educator' ? '/educator' : '/');
-      } catch (error) {
-        console.error('Error processing token:', error);
+        navigate(user.role === 'educator' ? '/educator' : '/dashboard');
+      } catch {
         setMessage('Error processing authentication');
       }
     }
@@ -50,44 +46,24 @@ const AuthForm = ({ isLogin }) => {
 
   const validateForm = () => {
     const newErrors = {};
-
-    if (!isLogin && !form.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-
-    if (!form.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(form.email)) {
-      newErrors.email = 'Email is invalid';
-    }
-
-    if (!form.password) {
-      newErrors.password = 'Password is required';
-    } else if (form.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-
+    if (!isLogin && !form.name.trim()) newErrors.name = 'Name is required';
+    if (!form.email.trim()) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(form.email)) newErrors.email = 'Invalid email';
+    if (!form.password) newErrors.password = 'Password is required';
+    else if (form.password.length < 6) newErrors.password = 'Must be at least 6 characters';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleChange = e => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
-    // Clear error when field is edited
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: '' });
-    }
+    setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  // OTP functions removed
-
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsLoading(true);
     setMessage('');
@@ -98,153 +74,207 @@ const AuthForm = ({ isLogin }) => {
     }, {});
 
     try {
-      const endpoint = isLogin ? 'http://localhost:5000/api/auth/login' : 'http://localhost:5000/api/auth/register';
-
+      const endpoint = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/${isLogin ? 'login' : 'register'}`;
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(trimmedForm)
       });
-
       const data = await response.json();
 
       if (response.ok) {
-        if (isLogin) {
-          completeLogin(data);
-        } else {
-          setMessage('Registration successful! Logging in...');
-          // Auto login after registration
-          completeLogin(data);
-        }
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setUser(data.user);
+        setIsEducator(data.user.role === 'educator');
+        navigate(data.user.role === 'educator' ? '/educator' : '/dashboard');
       } else {
         setMessage(data.message || 'Authentication failed');
       }
-    } catch (error) {
+    } catch {
       setMessage('Error connecting to server');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const completeLogin = (loginData) => {
-    localStorage.setItem('token', loginData.token);
-    localStorage.setItem('user', JSON.stringify(loginData.user));
-    setUser(loginData.user);
-    setIsEducator(loginData.user.role === 'educator');
-
-    // Redirect based on role
-    if (loginData.user.role === 'educator') {
-      navigate('/educator');
-    } else {
-      navigate('/');
-    }
-  };
-
-  // OTP rendering block removed
-
-  // Show regular form
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6">{isLogin ? 'Login' : 'Register'}</h2>
-
-      <div className="mb-6">
-        <GoogleAuth />
-      </div>
-
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-gray-500">Or continue with email</span>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        {!isLogin && (
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Name</label>
-            <input
-              name="name"
-              value={form.name || ''}
-              onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
-              required
-            />
-            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+    <div className="flex min-h-screen">
+      {/* Left panel - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/95 to-primary/90 relative overflow-hidden items-center justify-center">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
+        <div className="relative text-center px-12 max-w-lg">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white/90 mb-8">
+            <Sparkles size={14} />
+            {isLogin ? 'Welcome back' : 'Join us today'}
           </div>
-        )}
-
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Email</label>
-          <input
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded-lg ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
-            required
-          />
-          {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+          <h2 className="text-4xl font-bold text-white mb-4 leading-tight">
+            {isLogin ? 'Ready to continue your journey?' : 'Start your learning journey'}
+          </h2>
+          <p className="text-lg text-white/80 leading-relaxed">
+            {isLogin
+              ? 'Access your courses, track your progress, and pick up right where you left off.'
+              : 'Create an account and unlock access to hundreds of expert-led courses.'}
+          </p>
+          <div className="mt-10 flex items-center justify-center gap-8">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-white">500+</p>
+              <p className="text-sm text-white/70 mt-1">Courses</p>
+            </div>
+            <div className="h-10 w-px bg-white/20" />
+            <div className="text-center">
+              <p className="text-2xl font-bold text-white">50K+</p>
+              <p className="text-sm text-white/70 mt-1">Students</p>
+            </div>
+            <div className="h-10 w-px bg-white/20" />
+            <div className="text-center">
+              <p className="text-2xl font-bold text-white">95%</p>
+              <p className="text-sm text-white/70 mt-1">Satisfaction</p>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Password</label>
-          <input
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            type="password"
-            className={`w-full px-3 py-2 border rounded-lg ${errors.password ? 'border-red-500' : 'border-gray-300'}`}
-            required
-          />
-          {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
-        </div>
+      {/* Right panel - Form */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-background">
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <Link to="/" className="inline-block mb-6">
+              <img src={logo} alt="Learnova" className="h-8 w-auto mx-auto" />
+            </Link>
+            <h1 className="text-2xl font-bold text-foreground">
+              {isLogin ? 'Sign in to your account' : 'Create your account'}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              {isLogin ? "Don't have an account? " : 'Already have an account? '}
+              <Link
+                to={isLogin ? '/register' : '/login'}
+                className="text-primary font-medium hover:text-primary/80 transition-colors"
+              >
+                {isLogin ? 'Sign up' : 'Sign in'}
+              </Link>
+            </p>
+          </div>
 
-        {!isLogin && (
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Role</label>
-            <select
-              name="role"
-              value={form.role}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              required
+          {message && (
+            <div className={`mb-6 px-4 py-3 rounded-lg text-sm ${
+              message.includes('successful') || message.includes('Welcome')
+                ? 'bg-success/10 text-success border border-success/20'
+                : 'bg-error/10 text-error border border-error/20'
+            }`}>
+              {message}
+            </div>
+          )}
+
+          {/* Google Auth */}
+          <div className="mb-6">
+            <GoogleAuth />
+          </div>
+
+          {/* Divider */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-foreground mb-1.5">
+                  Full name
+                </label>
+                <div className="relative">
+                  <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    id="name"
+                    name="name"
+                    value={form.name || ''}
+                    onChange={handleChange}
+                    className={`w-full h-10 pl-10 pr-3 rounded-lg border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                      errors.name ? 'border-error' : 'border-input hover:border-neutral-300 dark:hover:border-neutral-600'
+                    }`}
+                    placeholder="John Doe"
+                  />
+                </div>
+                {errors.name && <p className="text-xs text-error mt-1">{errors.name}</p>}
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  className={`w-full h-10 pl-10 pr-3 rounded-lg border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                    errors.email ? 'border-error' : 'border-input hover:border-neutral-300 dark:hover:border-neutral-600'
+                  }`}
+                  placeholder="john@example.com"
+                />
+              </div>
+              {errors.email && <p className="text-xs text-error mt-1">{errors.email}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={handleChange}
+                  className={`w-full h-10 pl-10 pr-10 rounded-lg border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                    errors.password ? 'border-error' : 'border-input hover:border-neutral-300 dark:hover:border-neutral-600'
+                  }`}
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {errors.password && <p className="text-xs text-error mt-1">{errors.password}</p>}
+            </div>
+
+            {isLogin && (
+              <div className="flex justify-end">
+                <button type="button" className="text-xs text-primary font-medium hover:text-primary/80 transition-colors">
+                  Forgot password?
+                </button>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              loading={isLoading}
             >
-              <option value="student">Student</option>
-              <option value="educator">Educator</option>
-            </select>
-          </div>
-        )}
-
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300 flex justify-center"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
-          ) : null}
-          {isLogin ? 'Login with Email' : 'Register with Email'}
-        </button>
-
-        {message && (
-          <div className={`mt-4 p-3 rounded ${
-            message.includes('successful') ? 'bg-green-100 text-green-700' :
-            message.includes('Please log in') || message.includes('Educator access') ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-            'bg-red-100 text-red-700'
-          }`}>
-            {message}
-          </div>
-        )}
-      </form>
-
-      <div className="mt-4 text-center text-gray-600">
-        {isLogin ? (
-          <>Don't have an account? <a href="/register" className="text-blue-600 hover:underline">Register</a></>
-        ) : (
-          <>Already have an account? <a href="/login" className="text-blue-600 hover:underline">Login</a></>
-        )}
+              {isLogin ? 'Sign in' : 'Create account'}
+              {!isLoading && <ArrowRight size={16} />}
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );

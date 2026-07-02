@@ -63,6 +63,20 @@ export const AppContextProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved) return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   // Initialize auth state from localStorage
   useEffect(() => {
@@ -245,10 +259,12 @@ export const AppContextProvider = ({ children }) => {
     fetchNotifications,
     markNotificationRead,
     markAllNotificationsRead,
+    theme,
+    toggleTheme,
     api
   }), [
     currency, allCourses, loading, error, isEducator,
-    enrolledCourses, user, notifications, unreadCount
+    enrolledCourses, user, notifications, unreadCount, theme
   ]);
 
   return (

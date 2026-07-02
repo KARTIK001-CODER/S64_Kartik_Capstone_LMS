@@ -1,17 +1,19 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Line } from 'rc-progress';
-import { assets } from '../../assets/assets';
+import { Play, Clock, ArrowRight, BookOpen, Award } from 'lucide-react';
 import { AppContext } from '../../context/AppContext';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { ProgressBar } from '../../components/ui/progress';
+import { Skeleton } from '../../components/ui/skeleton';
+import { EmptyState, ErrorState } from '../../components/ui/empty-state';
 
 const API_BASE = 'http://localhost:5000';
 
 const calculateTotalLectures = (course) => {
   if (!course?.courseContent) return 0;
-  return course.courseContent.reduce(
-    (acc, chapter) => acc + (chapter.lectures || chapter.chapterContent || []).length,
-    0
-  );
+  return course.courseContent.reduce((acc, chapter) => acc + (chapter.lectures || chapter.chapterContent || []).length, 0);
 };
 
 const MyEnrollments = () => {
@@ -26,19 +28,11 @@ const MyEnrollments = () => {
     const fetchEnrolledCourses = async () => {
       try {
         const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
-
-        const response = await fetch(
-          `${API_BASE}/api/enrollments/student/enrolled-courses`,
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-
+        if (!token) throw new Error('No authentication token found');
+        const response = await fetch(`${API_BASE}/api/enrollments/student/enrolled-courses`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         const data = await response.json();
-
         if (Array.isArray(data)) {
           const mapped = data.map(enrollment => ({
             ...enrollment.courseId,
@@ -49,186 +43,131 @@ const MyEnrollments = () => {
             courseCompleted: enrollment.courseCompleted || false,
           }));
           setEnrolledCourses(mapped);
-        } else {
-          setEnrolledCourses([]);
-        }
-      } catch (error) {
-        setError(error.message || 'Failed to fetch enrolled courses');
+        } else setEnrolledCourses([]);
+      } catch (err) {
+        setError(err.message || 'Failed to fetch enrolled courses');
         setEnrolledCourses([]);
-      } finally {
-        setIsLoading(false);
-      }
+      } finally { setIsLoading(false); }
     };
-
     fetchEnrolledCourses();
-  }, []);
+    fetchUserEnrolledCourses?.();
+  }, [fetchUserEnrolledCourses]);
 
-  // Calculate course duration from course content
   const calculateCourseDuration = (course) => {
-    if (!course?.courseContent || !Array.isArray(course.courseContent)) {
-      return "N/A";
-    }
-
+    if (!course?.courseContent) return 'N/A';
     let totalMinutes = 0;
     course.courseContent.forEach(chapter => {
-      if (chapter?.chapterContent && Array.isArray(chapter.chapterContent)) {
-        chapter.chapterContent.forEach(lecture => {
-          if (typeof lecture?.lectureDuration === 'number') {
-            totalMinutes += lecture.lectureDuration;
-          }
-        });
-      }
+      (chapter.chapterContent || chapter.lectures || []).forEach(lecture => {
+        totalMinutes += (lecture.lectureDuration || lecture.duration || 0);
+      });
     });
-
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`;
-    }
-    return `${minutes}m`;
+    return hours > 0 ? `${hours}h ${minutes > 0 ? `${minutes}m` : ''}` : `${minutes}m`;
   };
 
-  // Calculate completion percentage
   const calculateProgress = (course) => {
     if (!course?.progress || !course?.totalLectures) return 0;
     return (course.progress / course.totalLectures) * 100;
   };
 
-  const getContinueInfo = (course) => {
-    if (course.courseCompleted) return null;
-    if (course.lastWatchedChapterIndex === undefined || course.lastWatchedLectureIndex === undefined) return null;
-    const chapter = course.courseContent?.[course.lastWatchedChapterIndex];
-    const lecture = chapter?.lectures?.[course.lastWatchedLectureIndex];
-    if (!lecture) return null;
-    return {
-      chapterTitle: chapter.title || chapter.chapterTitle || '',
-      lectureTitle: lecture.title || lecture.lectureTitle || '',
-      chapterIndex: course.lastWatchedChapterIndex,
-      lectureIndex: course.lastWatchedLectureIndex,
-    };
-  };
-
-  useEffect(() => {
-    fetchUserEnrolledCourses?.();
-  }, [fetchUserEnrolledCourses]);
+  const defaultThumbnail = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400';
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen bg-muted/30">
+        <div className="mx-auto max-w-7xl px-4 py-8 space-y-6">
+          <Skeleton variant="heading" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="rounded-xl border border-border p-4 space-y-4">
+                <Skeleton variant="thumbnail" />
+                <Skeleton variant="title" />
+                <Skeleton variant="text" />
+                <Skeleton variant="text" className="w-1/2" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-red-500">
-        {error}
+      <div className="min-h-screen flex items-center justify-center">
+        <ErrorState title="Failed to load enrollments" description={error} onRetry={() => window.location.reload()} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+    <div className="min-h-screen bg-muted/30 py-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Enrollments</h1>
-            <p className="mt-2 text-sm text-gray-600">
-              Track your progress and continue learning
-            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">My Learning</h1>
+            <p className="text-muted-foreground mt-1">Track your progress and continue learning</p>
           </div>
-          
-          <button 
-            onClick={() => navigate('/courses-list')} 
-            className="mt-3 sm:mt-4 md:mt-0 px-4 sm:px-6 py-2 sm:py-3 bg-white text-blue-600 font-bold rounded-lg sm:rounded-xl hover:bg-blue-50 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 flex items-center text-sm sm:text-base"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Explore New Courses
-          </button>
+          <Button onClick={() => navigate('/courses-list')} variant="outline">
+            <BookOpen size={16} />
+            Explore Courses
+          </Button>
         </div>
 
-        {/* Course Cards Grid */}
-        {enrolledCourses && enrolledCourses.length > 0 ? (
+        {enrolledCourses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {enrolledCourses.map((course, index) => (
-              <div 
-                key={course._id || index} 
+              <div
+                key={course._id || index}
                 onClick={() => navigate(`/player/${course._id}`)}
-                className="bg-white rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-blue-100 cursor-pointer transform hover:-translate-y-1"
+                className="group rounded-xl border border-border bg-card overflow-hidden hover:shadow-md transition-all cursor-pointer"
               >
-                {/* Course Image Banner */}
-                <div className="relative h-32 sm:h-40 md:h-48 overflow-hidden">
-                  <img 
-                    src={imgErrors[course._id] ? assets.course_1_thumbnail : (course.courseThumbnail || assets.course_1_thumbnail)} 
-                    alt={course.courseTitle} 
-                    className="w-full h-full object-cover"
+                <div className="relative h-40 overflow-hidden bg-muted">
+                  <img
+                    src={imgErrors[course._id] ? defaultThumbnail : (course.courseThumbnail || defaultThumbnail)}
+                    alt={course.courseTitle}
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     onError={() => setImgErrors(prev => ({ ...prev, [course._id]: true }))}
+                    loading="lazy"
                   />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 sm:p-4">
+                  <div className="absolute bottom-3 left-3">
                     {course.courseCompleted ? (
-                      <span className="px-2 sm:px-4 py-1 text-xs sm:text-sm font-bold rounded-full bg-green-500 text-white">
-                        Completed
-                      </span>
-                    ) : course.lastWatchedChapterIndex !== undefined ? (
-                      <span className="px-2 sm:px-4 py-1 text-xs sm:text-sm font-bold rounded-full bg-blue-500 text-white">
-                        Continue Learning
-                      </span>
+                      <Badge variant="success" size="sm">Completed</Badge>
                     ) : (
-                      <span className="px-2 sm:px-4 py-1 text-xs sm:text-sm font-bold rounded-full bg-blue-500 text-white">
-                        In Progress
-                      </span>
+                      <Badge variant="default" size="sm">
+                        {course.lastWatchedChapterIndex !== undefined ? 'Continue' : 'In Progress'}
+                      </Badge>
                     )}
                   </div>
                 </div>
-
-                {/* Course Content */}
-                <div className="p-4 sm:p-6">
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+                <div className="p-4">
+                  <h3 className="font-semibold text-foreground text-sm leading-snug mb-1 line-clamp-2">
                     {course.courseTitle}
                   </h3>
-                  {(() => {
-                    const info = getContinueInfo(course);
-                    return info ? (
-                      <p className="text-xs text-blue-600 font-medium mb-2">
-                        Continue from: {info.lectureTitle}
-                      </p>
-                    ) : null;
-                  })()}
-                  <p className="text-sm text-gray-600 mb-4">
-                    Duration: {calculateCourseDuration(course)}
-                  </p>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Progress</span>
-                      <span className="font-medium text-gray-900">
-                        {Math.round(calculateProgress(course))}%
-                      </span>
-                    </div>
-                    <Line 
-                      percent={calculateProgress(course)} 
-                      strokeWidth={4} 
-                      strokeColor="#3B82F6"
-                      trailColor="#E5E7EB"
-                    />
-                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">{calculateCourseDuration(course)}</p>
+                  <ProgressBar
+                    value={calculateProgress(course)}
+                    max={100}
+                    size="sm"
+                    showLabel
+                    label="Progress"
+                  />
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 bg-white rounded-lg shadow-md border border-gray-100">
-            <p className="text-xl text-gray-600">No enrolled courses found</p>
-            <button
-              onClick={() => navigate('/courses-list')}
-              className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 font-medium"
-            >
-              Browse Courses
-            </button>
-          </div>
+          <EmptyState
+            icon={BookOpen}
+            title="No enrolled courses"
+            description="Browse our catalog and enroll in your first course to get started."
+            action={
+              <Button onClick={() => navigate('/courses-list')}>
+                Browse Courses <ArrowRight size={16} />
+              </Button>
+            }
+          />
         )}
       </div>
     </div>
