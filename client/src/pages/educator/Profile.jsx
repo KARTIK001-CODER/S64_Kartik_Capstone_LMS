@@ -190,7 +190,7 @@ const Profile = () => {
             <div className="flex items-start gap-6 mb-6">
               <div className="relative flex-shrink-0">
                 <Avatar size="xl" src={profile.avatar} alt={profile.name} initials={profile.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)} />
-                <button onClick={() => fileRef.current?.click()} className="absolute bottom-0 right-0 p-1.5 rounded-full bg-primary text-primary-foreground shadow hover:bg-primary/90 transition">
+                <button onClick={() => fileRef.current?.click()} aria-label="Upload avatar" className="absolute bottom-0 right-0 p-1.5 rounded-full bg-primary text-primary-foreground shadow hover:bg-primary/90 transition">
                   <Camera size={12} />
                 </button>
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
@@ -280,7 +280,7 @@ const Profile = () => {
                           <input type="text" value={exp.endDate || ''} onChange={(e) => handleExperienceChange(i, 'endDate', e.target.value)} placeholder="e.g. 2023" disabled={exp.current} className="w-full h-9 px-3 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50" />
                         </div>
                       </div>
-                      <button onClick={() => removeExperience(i)} className="p-1.5 text-muted-foreground hover:text-error transition-colors ml-2 flex-shrink-0">
+                      <button onClick={() => removeExperience(i)} aria-label="Remove experience" className="p-1.5 text-muted-foreground hover:text-error transition-colors ml-2 flex-shrink-0">
                         <X size={16} />
                       </button>
                     </div>

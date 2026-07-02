@@ -1,3 +1,4 @@
+import asyncHandler from 'express-async-handler';
 import User from '../models/User.js';
 import Course from '../models/Course.js';
 import Enrollment from '../models/Enrollment.js';
@@ -88,63 +89,50 @@ const getFilteredStats = async (startDate, endDate) => {
   };
 };
 
-export const getReportSummary = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-    const stats = await getFilteredStats(startDate, endDate);
-    res.status(200).json(stats);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+export const getReportSummary = asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query;
+  const stats = await getFilteredStats(startDate, endDate);
+  res.json(stats);
+});
 
-export const exportCSV = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-    const stats = await getFilteredStats(startDate, endDate);
+export const exportCSV = asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query;
+  const stats = await getFilteredStats(startDate, endDate);
 
-    const fields = ['title', 'enrollmentCount'];
-    const json2csvParser = new Parser({ fields });
-    const csv = json2csvParser.parse(stats.courseStats);
+  const fields = ['title', 'enrollmentCount'];
+  const json2csvParser = new Parser({ fields });
+  const csv = json2csvParser.parse(stats.courseStats);
 
-    res.header('Content-Type', 'text/csv');
-    res.attachment('course_popularity_report.csv');
-    return res.send(csv);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+  res.header('Content-Type', 'text/csv');
+  res.attachment('course_popularity_report.csv');
+  res.send(csv);
+});
 
-export const exportPDF = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-    const stats = await getFilteredStats(startDate, endDate);
+export const exportPDF = asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query;
+  const stats = await getFilteredStats(startDate, endDate);
 
-    const doc = new PDFDocument();
-    let filename = 'report_summary.pdf';
-    res.setHeader('Content-disposition', 'attachment; filename="' + filename + '"');
-    res.setHeader('Content-type', 'application/pdf');
+  const doc = new PDFDocument();
+  res.setHeader('Content-disposition', 'attachment; filename="report_summary.pdf"');
+  res.setHeader('Content-type', 'application/pdf');
 
-    doc.fontSize(25).text('LMS Report Summary', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(12).text(`Report Period: ${startDate || 'All Time'} to ${endDate || 'Present'}`);
-    doc.moveDown();
+  doc.fontSize(25).text('LMS Report Summary', { align: 'center' });
+  doc.moveDown();
+  doc.fontSize(12).text(`Report Period: ${startDate || 'All Time'} to ${endDate || 'Present'}`);
+  doc.moveDown();
 
-    doc.fontSize(18).text('Key Metrics:');
-    doc.fontSize(14).text(`Total Users: ${stats.totalUsers}`);
-    doc.text(`Total Courses: ${stats.totalCourses}`);
-    doc.text(`Total Enrollments: ${stats.totalEnrollments}`);
-    doc.text(`Total Revenue: $${stats.revenue.toLocaleString()}`);
-    doc.moveDown();
+  doc.fontSize(18).text('Key Metrics:');
+  doc.fontSize(14).text(`Total Users: ${stats.totalUsers}`);
+  doc.text(`Total Courses: ${stats.totalCourses}`);
+  doc.text(`Total Enrollments: ${stats.totalEnrollments}`);
+  doc.text(`Total Revenue: $${stats.revenue.toLocaleString()}`);
+  doc.moveDown();
 
-    doc.fontSize(18).text('Course Popularity:');
-    stats.courseStats.forEach(course => {
-      doc.fontSize(12).text(`${course.title}: ${course.enrollmentCount} enrollments`);
-    });
+  doc.fontSize(18).text('Course Popularity:');
+  stats.courseStats.forEach(course => {
+    doc.fontSize(12).text(`${course.title}: ${course.enrollmentCount} enrollments`);
+  });
 
-    doc.pipe(res);
-    doc.end();
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+  doc.pipe(res);
+  doc.end();
+});

@@ -190,6 +190,7 @@ const StudentDashboard = () => {
                   src={imgErrors[continueLearning.courseId] ? defaultThumbnail : (continueLearning.courseThumbnail || defaultThumbnail)}
                   alt={continueLearning.courseTitle}
                   className="w-full h-48 md:h-full object-cover"
+                  loading="lazy"
                   onError={() => handleImageError(continueLearning.courseId)}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent md:bg-gradient-to-r" />

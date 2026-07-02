@@ -17,5 +17,16 @@ export default defineConfig({
         secure: false,
       }
     }
-  }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'lucide': ['lucide-react'],
+          'recharts': ['recharts'],
+        },
+      },
+    },
+  },
 })

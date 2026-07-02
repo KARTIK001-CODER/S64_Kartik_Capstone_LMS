@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5000:5000"
+    env_file: ./Backend/.env
+    environment:
+      - FRONTEND_URL=http://localhost:5173
+      - NODE_ENV=development
+      - MOCK_MODE=true
+    volumes:
+      - ./Backend:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped

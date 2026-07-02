@@ -2,6 +2,7 @@ import Course from '../models/Course.js';
 import Enrollment from '../models/Enrollment.js';
 import User from '../models/User.js';
 import EducatorSettings from '../models/EducatorSettings.js';
+import AppError from '../utils/AppError.js';
 
 export const getDashboardStats = async (educatorId) => {
   const courses = await Course.find({ educator: educatorId })
@@ -228,15 +229,19 @@ export const getLearners = async (educatorId, { page, limit, search, courseId, s
     });
   }
 
-  const countPipeline = [...pipeline, { $count: 'total' }];
-  const countResult = await Enrollment.aggregate(countPipeline);
-  const total = countResult[0]?.total || 0;
-
-  const learners = await Enrollment.aggregate([
+  const facetPipeline = [
     ...pipeline,
-    { $skip: skip },
-    { $limit: safeLimit }
-  ]);
+    {
+      $facet: {
+        metadata: [{ $count: 'total' }],
+        data: [{ $skip: skip }, { $limit: safeLimit }]
+      }
+    }
+  ];
+
+  const facetResult = await Enrollment.aggregate(facetPipeline);
+  const total = facetResult[0]?.metadata[0]?.total || 0;
+  const learners = facetResult[0]?.data || [];
 
   return {
     learners,
@@ -269,20 +274,20 @@ export const getReportData = async (educatorId, startDate, endDate) => {
     };
   }
 
-  const enrollments = await Enrollment.find({
-    courseId: { $in: educatorCourseIds },
-    status: 'completed',
-    ...dateFilter
-  })
-    .select('studentId courseId amount enrolledAt courseCompleted courseCompletedAt')
-    .lean();
-
   const allEnrollments = await Enrollment.find({
     courseId: { $in: educatorCourseIds },
     status: 'completed'
   })
     .select('studentId courseId amount enrolledAt courseCompleted courseCompletedAt')
     .lean();
+
+  const enrollments = dateFilter.enrolledAt
+    ? allEnrollments.filter(e => {
+        const d = new Date(e.enrolledAt);
+        return (!dateFilter.enrolledAt.$gte || d >= dateFilter.enrolledAt.$gte) &&
+               (!dateFilter.enrolledAt.$lte || d <= dateFilter.enrolledAt.$lte);
+      })
+    : allEnrollments;
 
   const uniqueStudents = new Set(enrollments.map(e => e.studentId.toString()));
   const totalStudents = uniqueStudents.size;
@@ -447,9 +452,7 @@ export const updateProfile = async (userId, updates) => {
 
   const user = await User.findByIdAndUpdate(userId, { $set: data }, { new: true, runValidators: true }).select('-password');
   if (!user) {
-    const err = new Error('User not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('User not found', 404, 'USER_NOT_FOUND');
   }
   return user;
 };

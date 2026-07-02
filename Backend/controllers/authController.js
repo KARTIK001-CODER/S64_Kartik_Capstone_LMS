@@ -1,188 +1,138 @@
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import logger from '../utils/logger.js';
+import {
+  updateLoginAttempts,
+  isUserLockedOut,
+  getRemainingLockoutTime,
+} from '../utils/validation.js';
 
-// Simple in-memory rate limiting
 const loginAttempts = new Map();
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
 
 export const register = async (req, res) => {
   const { name, email, password, role } = req.body;
 
-  if (!name || !email || !password || !role) {
-    return res.status(400).json({ message: 'All fields are required' });
-  }
-
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ message: 'Invalid email format' });
-  }
-
-  // Validate password strength
-  if (password.length < 6) {
-    return res.status(400).json({ message: 'Password must be at least 6 characters' });
-  }
-
   try {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ success: false, message: 'User already exists', errorCode: 'USER_EXISTS' });
     }
 
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const newUser = new User({
-      name,
-      email,
-      password: hashedPassword,
-      role,
-    });
-
-    const savedUser = await newUser.save();
+    const savedUser = await User.create({ name, email, password: hashedPassword, role });
 
     const token = jwt.sign(
-      {
-        id: savedUser._id,
-        role: savedUser.role,
-        name: savedUser.name
-      },
+      { id: savedUser._id, role: savedUser.role, name: savedUser.name },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
     );
 
-    // Don't return password in response
-    const userResponse = {
-      _id: savedUser._id,
-      name: savedUser.name,
-      email: savedUser.email,
-      role: savedUser.role
-    };
+    const refreshToken = jwt.sign(
+      { id: savedUser._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    );
 
-    res.status(201).json({ user: userResponse, token });
+    res.status(201).json({
+      success: true,
+      user: { _id: savedUser._id, name: savedUser.name, email: savedUser.email, role: savedUser.role },
+      token,
+      refreshToken,
+    });
   } catch (error) {
-    console.error("Error during registration:", error);
-    res.status(500).json({ message: 'Something went wrong', error: error.message });
+    logger.error({ err: error }, 'Error during registration');
+    res.status(500).json({ success: false, message: 'Something went wrong', errorCode: 'INTERNAL_ERROR' });
   }
 };
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
   const ip = req.ip || 'unknown';
-
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
-  }
-
-  // Check for rate limiting
   const key = `${ip}:${email}`;
-  const attempt = loginAttempts.get(key) || { count: 0, lockUntil: 0 };
 
-  // Check if user is locked out
-  const now = Date.now();
-  if (attempt.lockUntil > now) {
-    const remainingMinutes = Math.ceil((attempt.lockUntil - now) / 60000);
+  if (isUserLockedOut(loginAttempts, key)) {
+    const remainingMinutes = getRemainingLockoutTime(loginAttempts, key);
     return res.status(429).json({
-      message: `Too many failed login attempts. Try again in ${remainingMinutes} minutes.`
+      success: false,
+      message: `Too many failed login attempts. Try again in ${remainingMinutes} minutes.`,
+      errorCode: 'RATE_LIMIT',
     });
   }
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      // Increment failed attempts even if user doesn't exist
-      updateLoginAttempts(key, false);
-      return res.status(400).json({ message: 'Invalid credentials' });
+      updateLoginAttempts(loginAttempts, key, false);
+      return res.status(401).json({ success: false, message: 'Invalid credentials', errorCode: 'INVALID_CREDENTIALS' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      updateLoginAttempts(key, false);
-      return res.status(400).json({ message: 'Invalid credentials' });
+      updateLoginAttempts(loginAttempts, key, false);
+      return res.status(401).json({ success: false, message: 'Invalid credentials', errorCode: 'INVALID_CREDENTIALS' });
     }
 
-    // Reset attempts on successful login
-    loginAttempts.delete(key);
+    updateLoginAttempts(loginAttempts, key, true);
 
     const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-        name: user.name
-      },
+      { id: user._id, role: user.role, name: user.name },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
     );
 
-    // Don't return password in response
-    const userResponse = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    };
+    const refreshToken = jwt.sign(
+      { id: user._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    );
 
-    res.status(200).json({ user: userResponse, token });
+    res.json({
+      success: true,
+      user: { _id: user._id, name: user.name, email: user.email, role: user.role, avatar: user.avatar },
+      token,
+      refreshToken,
+    });
   } catch (error) {
-    console.error("Error during login:", error);
-    res.status(500).json({ message: 'Something went wrong', error: error.message });
+    logger.error({ err: error }, 'Error during login');
+    res.status(500).json({ success: false, message: 'Something went wrong', errorCode: 'INTERNAL_ERROR' });
   }
 };
 
-function updateLoginAttempts(key, success) {
-  if (success) {
-    loginAttempts.delete(key);
-    return;
-  }
-
-  const attempt = loginAttempts.get(key) || { count: 0, lockUntil: 0 };
-  attempt.count += 1;
-
-  if (attempt.count >= MAX_ATTEMPTS) {
-    attempt.lockUntil = Date.now() + LOCKOUT_TIME;
-    attempt.count = 0;
-  }
-
-  loginAttempts.set(key, attempt);
-
-  // Clean up old entries periodically
-  if (loginAttempts.size > 100) {
-    const now = Date.now();
-    for (const [key, value] of loginAttempts.entries()) {
-      if (value.lockUntil < now && value.count === 0) {
-        loginAttempts.delete(key);
-      }
-    }
-  }
-}
-
-// New endpoint for token refresh
 export const refreshToken = async (req, res) => {
-  const { token } = req.body;
+  const { refreshToken: token } = req.body;
 
   if (!token) {
-    return res.status(400).json({ message: 'Token is required' });
+    return res.status(400).json({ success: false, message: 'Refresh token is required', errorCode: 'TOKEN_REQUIRED' });
   }
 
   try {
-    // Verify the existing token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
 
-    // Generate a new token
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'User not found', errorCode: 'USER_NOT_FOUND' });
+    }
+
     const newToken = jwt.sign(
-      {
-        id: decoded.id,
-        role: decoded.role,
-        name: decoded.name
-      },
+      { id: user._id, role: user.role, name: user.name },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
     );
 
-    res.status(200).json({ token: newToken });
+    const newRefreshToken = jwt.sign(
+      { id: user._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    );
+
+    res.json({ success: true, token: newToken, refreshToken: newRefreshToken });
   } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'Refresh token expired. Please log in again.', errorCode: 'TOKEN_EXPIRED' });
+    }
+    return res.status(401).json({ success: false, message: 'Invalid refresh token', errorCode: 'INVALID_TOKEN' });
   }
 };

@@ -1,6 +1,7 @@
 import Course from '../models/Course.js';
 import Enrollment from '../models/Enrollment.js';
 import User from '../models/User.js';
+import AppError from '../utils/AppError.js';
 import { notifyEducatorReviewReceived } from './notificationService.js';
 
 export const listCourses = async ({ page, limit, search, category, difficulty, language }) => {
@@ -35,9 +36,7 @@ export const getCourseById = async (courseId) => {
     .populate('enrolledStudents', 'name email');
 
   if (!course) {
-    const err = new Error('Course not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
   }
   return course;
 };
@@ -52,47 +51,29 @@ const parseJSONField = (value) => {
 export const createCourse = async ({ educator, body, file }) => {
   let courseThumbnail = file?.path || body.courseThumbnail;
 
-  const courseTitle = body.courseTitle;
-  const courseSubtitle = body.courseSubtitle || '';
-  const courseDescription = body.courseDescription;
-  const coursePrice = body.coursePrice;
-  const isPublished = body.isPublished;
-  const discount = body.discount || 0;
-  const category = body.category || 'General';
-  const tags = parseJSONField(body.tags) || [];
-  const difficulty = body.difficulty || 'All Levels';
-  const language = body.language || 'English';
-  const previewVideo = body.previewVideo || '';
-  const learningOutcomes = parseJSONField(body.learningOutcomes) || [];
-  const requirements = parseJSONField(body.requirements) || [];
-  const courseContent = parseJSONField(body.courseContent) || [];
-
-  if (!courseTitle || !courseDescription || !coursePrice || !courseThumbnail) {
-    const err = new Error('Missing required fields: title, description, price, and thumbnail are required');
-    err.statusCode = 400;
-    throw err;
+  if (!body.courseTitle || !body.courseDescription || !body.coursePrice || !courseThumbnail) {
+    throw new AppError('Missing required fields: title, description, price, and thumbnail are required', 400, 'VALIDATION_ERROR');
   }
 
+  const courseContent = parseJSONField(body.courseContent) || [];
   if (!Array.isArray(courseContent) || courseContent.length === 0) {
-    const err = new Error('Course content must be a non-empty array');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError('Course content must be a non-empty array', 400, 'VALIDATION_ERROR');
   }
 
   return Course.create({
-    courseTitle,
-    courseSubtitle,
-    courseDescription,
-    coursePrice: Number(coursePrice),
-    isPublished: Boolean(isPublished),
-    discount: Number(discount),
-    category,
-    tags,
-    difficulty,
-    language,
-    previewVideo,
-    learningOutcomes,
-    requirements,
+    courseTitle: body.courseTitle,
+    courseSubtitle: body.courseSubtitle || '',
+    courseDescription: body.courseDescription,
+    coursePrice: Number(body.coursePrice),
+    isPublished: Boolean(body.isPublished),
+    discount: Number(body.discount || 0),
+    category: body.category || 'General',
+    tags: parseJSONField(body.tags) || [],
+    difficulty: body.difficulty || 'All Levels',
+    language: body.language || 'English',
+    previewVideo: body.previewVideo || '',
+    learningOutcomes: parseJSONField(body.learningOutcomes) || [],
+    requirements: parseJSONField(body.requirements) || [],
     courseContent,
     courseThumbnail,
     educator,
@@ -102,15 +83,11 @@ export const createCourse = async ({ educator, body, file }) => {
 export const updateCourse = async ({ courseId, userId, body, file }) => {
   const course = await Course.findById(courseId);
   if (!course) {
-    const err = new Error('Course not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
   }
 
   if (course.educator.toString() !== userId.toString()) {
-    const err = new Error('Not authorized to update this course');
-    err.statusCode = 403;
-    throw err;
+    throw new AppError('Not authorized to update this course', 403, 'FORBIDDEN');
   }
 
   const updates = {};
@@ -140,15 +117,11 @@ export const updateCourse = async ({ courseId, userId, body, file }) => {
 export const deleteCourse = async (courseId, userId) => {
   const course = await Course.findById(courseId);
   if (!course) {
-    const err = new Error('Course not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
   }
 
   if (course.educator.toString() !== userId.toString()) {
-    const err = new Error('Not authorized to delete this course');
-    err.statusCode = 403;
-    throw err;
+    throw new AppError('Not authorized to delete this course', 403, 'FORBIDDEN');
   }
 
   await course.deleteOne();
@@ -158,16 +131,12 @@ export const deleteCourse = async (courseId, userId) => {
 export const addRating = async (courseId, userId, rating, review) => {
   const course = await Course.findById(courseId);
   if (!course) {
-    const err = new Error('Course not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
   }
 
   const isEnrolled = course.enrolledStudents.some(s => s.toString() === userId.toString());
   if (!isEnrolled) {
-    const err = new Error('Must be enrolled to rate this course');
-    err.statusCode = 403;
-    throw err;
+    throw new AppError('Must be enrolled to rate this course', 403, 'FORBIDDEN');
   }
 
   const existingRating = course.courseRatings.find(r => r.student.toString() === userId.toString());
@@ -193,16 +162,12 @@ export const addRating = async (courseId, userId, rating, review) => {
 export const deleteRating = async (courseId, userId) => {
   const course = await Course.findById(courseId);
   if (!course) {
-    const err = new Error('Course not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
   }
 
   const ratingIndex = course.courseRatings.findIndex(r => r.student.toString() === userId.toString());
   if (ratingIndex === -1) {
-    const err = new Error('No rating found to delete');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('No rating found to delete', 404, 'RATING_NOT_FOUND');
   }
 
   course.courseRatings.splice(ratingIndex, 1);
@@ -213,22 +178,16 @@ export const deleteRating = async (courseId, userId) => {
 export const addReviewReply = async (courseId, userId, ratingId, reply) => {
   const course = await Course.findById(courseId);
   if (!course) {
-    const err = new Error('Course not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
   }
 
   if (course.educator.toString() !== userId.toString()) {
-    const err = new Error('Not authorized to reply to reviews on this course');
-    err.statusCode = 403;
-    throw err;
+    throw new AppError('Not authorized to reply to reviews on this course', 403, 'FORBIDDEN');
   }
 
   const rating = course.courseRatings.id(ratingId);
   if (!rating) {
-    const err = new Error('Review not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Review not found', 404, 'REVIEW_NOT_FOUND');
   }
 
   rating.reply = reply;
@@ -240,15 +199,11 @@ export const addReviewReply = async (courseId, userId, ratingId, reply) => {
 export const duplicateCourse = async (courseId, userId) => {
   const course = await Course.findById(courseId);
   if (!course) {
-    const err = new Error('Course not found');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
   }
 
   if (course.educator.toString() !== userId.toString()) {
-    const err = new Error('Not authorized to duplicate this course');
-    err.statusCode = 403;
-    throw err;
+    throw new AppError('Not authorized to duplicate this course', 403, 'FORBIDDEN');
   }
 
   const courseObj = course.toObject();
@@ -300,9 +255,7 @@ export const bulkAction = async (educatorId, { courseIds, action }) => {
   const courses = await Course.find({ _id: { $in: courseIds }, educator: educatorId });
 
   if (courses.length !== courseIds.length) {
-    const err = new Error('One or more courses not found or unauthorized');
-    err.statusCode = 404;
-    throw err;
+    throw new AppError('One or more courses not found or unauthorized', 404, 'COURSE_NOT_FOUND');
   }
 
   let update = {};
@@ -314,9 +267,7 @@ export const bulkAction = async (educatorId, { courseIds, action }) => {
     await Course.deleteMany({ _id: { $in: courseIds }, educator: educatorId });
     return { message: `${courseIds.length} course(s) deleted` };
   } else {
-    const err = new Error('Invalid action');
-    err.statusCode = 400;
-    throw err;
+    throw new AppError('Invalid action', 400, 'VALIDATION_ERROR');
   }
 
   await Course.updateMany({ _id: { $in: courseIds }, educator: educatorId }, update);

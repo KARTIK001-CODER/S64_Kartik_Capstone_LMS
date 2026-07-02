@@ -248,7 +248,7 @@ const AddCourse = () => {
                   updated[idx] = e.target.value;
                   setForm(prev => ({ ...prev, learningOutcomes: updated }));
                 }} className="flex-1 h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
-                <button type="button" onClick={() => removeArrayItem('learningOutcomes', idx)} className="p-1 text-muted-foreground hover:text-error"><X size={14} /></button>
+                <button type="button" onClick={() => removeArrayItem('learningOutcomes', idx)} aria-label="Remove outcome" className="p-1 text-muted-foreground hover:text-error"><X size={14} /></button>
               </div>
             ))}
             <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem('learningOutcomes', '')}>
@@ -271,7 +271,7 @@ const AddCourse = () => {
                   updated[idx] = e.target.value;
                   setForm(prev => ({ ...prev, requirements: updated }));
                 }} className="flex-1 h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
-                <button type="button" onClick={() => removeArrayItem('requirements', idx)} className="p-1 text-muted-foreground hover:text-error"><X size={14} /></button>
+                <button type="button" onClick={() => removeArrayItem('requirements', idx)} aria-label="Remove requirement" className="p-1 text-muted-foreground hover:text-error"><X size={14} /></button>
               </div>
             ))}
             <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem('requirements', '')}>
@@ -317,7 +317,7 @@ const AddCourse = () => {
                       <button type="button" onClick={() => {
                         const updated = [...currentChapter.lectures]; updated.splice(idx, 1);
                         setCurrentChapter(prev => ({ ...prev, lectures: updated }));
-                      }} className="text-muted-foreground hover:text-error"><X size={14} /></button>
+                      }} aria-label="Remove lecture" className="text-muted-foreground hover:text-error"><X size={14} /></button>
                     </div>
                   ))}
                 </div>
@@ -340,7 +340,7 @@ const AddCourse = () => {
                       <span className="text-sm font-medium text-foreground">{chapter.title}</span>
                       <Badge variant="neutral" size="sm">{chapter.lectures.length} lectures</Badge>
                     </div>
-                    <button type="button" onClick={() => removeChapter(chapterIdx)} className="p-1 text-muted-foreground hover:text-error rounded"><Trash2 size={14} /></button>
+                    <button type="button" onClick={() => removeChapter(chapterIdx)} aria-label="Remove chapter" className="p-1 text-muted-foreground hover:text-error rounded"><Trash2 size={14} /></button>
                   </div>
                   <div className="divide-y divide-border">
                     {chapter.lectures.map((lecture, lectureIdx) => (
@@ -351,7 +351,7 @@ const AddCourse = () => {
                         <div className="flex items-center gap-3">
                           <span className="text-xs text-muted-foreground">{lecture.duration} min</span>
                           {lecture.isPreviewFree && <Badge variant="warning" size="sm">Free</Badge>}
-                          <button type="button" onClick={() => removeLecture(chapterIdx, lectureIdx)} className="p-0.5 text-muted-foreground hover:text-error"><X size={12} /></button>
+                          <button type="button" onClick={() => removeLecture(chapterIdx, lectureIdx)} aria-label="Remove lecture" className="p-0.5 text-muted-foreground hover:text-error"><X size={12} /></button>
                         </div>
                       </div>
                     ))}

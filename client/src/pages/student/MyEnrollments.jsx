@@ -29,7 +29,7 @@ const MyEnrollments = () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) throw new Error('No authentication token found');
-        const response = await fetch(`${API_BASE}/api/enrollments/student/enrolled-courses`, {
+        const response = await fetch(`${API_BASE}/api/enrollments`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await response.json();

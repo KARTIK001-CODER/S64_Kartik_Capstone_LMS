@@ -1,6 +1,7 @@
 import express from 'express';
 import { protect } from '../middleware/authMiddleware.js';
 import { createOrder, verifyPayment } from '../controllers/paymentController.js';
+import { paymentValidation, verifyPaymentValidation } from '../middleware/validation.js';
 
 const router = express.Router();
 
@@ -8,7 +9,7 @@ const router = express.Router();
  * @openapi
  * /api/payments/create-order:
  *   post:
- *     summary: Create a Razorpay order for a course
+ *     summary: Create a payment order for course enrollment
  *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
@@ -22,16 +23,16 @@ const router = express.Router();
  *             properties:
  *               courseId: { type: string }
  *     responses:
- *       201:
- *         description: Razorpay order created (or dev-mode enrollment)
+ *       200:
+ *         description: Payment order created
  */
-router.post('/create-order', protect, createOrder);
+router.post('/create-order', protect, paymentValidation, createOrder);
 
 /**
  * @openapi
  * /api/payments/verify:
  *   post:
- *     summary: Verify Razorpay payment signature and create enrollment
+ *     summary: Verify payment and complete enrollment
  *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
@@ -47,11 +48,11 @@ router.post('/create-order', protect, createOrder);
  *               razorpay_payment_id: { type: string }
  *               razorpay_signature: { type: string }
  *     responses:
- *       201:
- *         description: Payment verified and enrollment created
+ *       200:
+ *         description: Payment verified and enrollment completed
  *       400:
- *         description: Invalid signature
+ *         description: Invalid payment signature
  */
-router.post('/verify', protect, verifyPayment);
+router.post('/verify', protect, verifyPaymentValidation, verifyPayment);
 
 export default router;

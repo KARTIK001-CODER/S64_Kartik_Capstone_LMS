@@ -158,4 +158,4 @@ const CourseCard = ({ course }) => {
   );
 };
 
-export default CourseCard;
+export default React.memo(CourseCard);

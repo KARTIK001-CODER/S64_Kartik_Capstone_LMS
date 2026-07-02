@@ -66,6 +66,7 @@ courseSchema.index({ language: 1 });
 courseSchema.index({ educator: 1 });
 courseSchema.index({ isPublished: 1, createdAt: -1 });
 courseSchema.index({ category: 1 });
+courseSchema.index({ courseTitle: 'text' });
 
 const Course = mongoose.model('Course', courseSchema);
 

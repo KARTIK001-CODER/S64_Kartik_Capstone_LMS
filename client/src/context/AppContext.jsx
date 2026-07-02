@@ -1,12 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { dummyCourses } from '../assets/assets';
 
-// API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
-// Create axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -14,7 +11,6 @@ const api = axios.create({
   }
 });
 
-// Add request interceptor to add token to all requests
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -23,17 +19,13 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Add response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear auth data and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -78,7 +70,6 @@ export const AppContextProvider = ({ children }) => {
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
-  // Initialize auth state from localStorage
   useEffect(() => {
     const initializeAuth = () => {
       try {
@@ -157,7 +148,6 @@ export const AppContextProvider = ({ children }) => {
   const calculateCourseDuration = (course) => {
     if (!course?.courseContent) return 'N/A';
 
-    // Calculate total minutes from all lectures in all chapters
     const totalMinutes = course.courseContent.reduce((acc, chapter) =>
       acc + (chapter.lectures || chapter.chapterContent || []).reduce((sum, lecture) => sum + (lecture.duration || lecture.lectureDuration || 0), 0), 0);
 
@@ -173,7 +163,7 @@ export const AppContextProvider = ({ children }) => {
 
   const fetchUserEnrolledCourses = async () => {
     try {
-      const response = await api.get('/api/enrollments/student/enrolled-courses');
+      const response = await api.get('/api/enrollments');
 
       if (Array.isArray(response.data)) {
         const coursesWithProgress = response.data.map(enrollment => ({
@@ -198,7 +188,7 @@ export const AppContextProvider = ({ children }) => {
   const fetchNotifications = async () => {
     if (!user?._id) return;
     try {
-      const response = await api.get(`/api/notifications/${user._id}`);
+      const response = await api.get('/api/notifications');
       setNotifications(response.data);
       setUnreadCount(response.data.filter(n => !n.isRead).length);
     } catch (error) {
@@ -219,7 +209,7 @@ export const AppContextProvider = ({ children }) => {
   const markAllNotificationsRead = async () => {
     if (!user?._id) return;
     try {
-      await api.patch('/api/notifications/mark-all', { userId: user._id });
+      await api.patch('/api/notifications/mark-all');
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
     } catch (error) {
@@ -242,7 +232,6 @@ export const AppContextProvider = ({ children }) => {
     allCourses,
     loading,
     error,
-    Navigate,
     calculateRating,
     isEducator,
     setIsEducator,

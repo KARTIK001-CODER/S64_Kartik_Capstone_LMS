@@ -1,12 +1,52 @@
-# React + Vite
+# LMS Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React-based frontend for the Learning Management System.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **React 19** with hooks and context API.
+- **Vite 6** for fast development and optimized builds.
+- **Tailwind CSS** for styling.
+- **Lucide React** for icons.
+- **Recharts** for educator dashboard charts.
+- **React Router v7** for client-side routing.
+- **Axios** for API requests.
 
-## Expanding the ESLint configuration
+## Structure
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```
+client/src/
+├── assets/           # Static assets (images, SVGs)
+├── components/       # Reusable UI components
+│   ├── ui/           # Base UI kit (Card, Avatar, Badge, Button, Input)
+│   ├── student/      # Student-specific components (CourseCard, Navbar, Footer)
+│   └── educator/     # Educator-specific components (NavBar)
+├── context/          # AppContext (global state: auth, courses, enrollments)
+├── pages/            # Page components (lazy-loaded with React.lazy)
+│   ├── student/      # Student pages (Dashboard, CourseDetails, Player, ...)
+│   └── educator/     # Educator pages (Dashboard, MyCourses, Reports, ...)
+└── index.css         # Tailwind directives and custom styles
+```
+
+## Routing
+
+All pages except `Home`, `Login`, `Register`, `CoursesList`, and `Dashboard` are lazy-loaded with `React.lazy()` + `Suspense` for code splitting.
+
+## State Management
+
+- **AppContext** provides global state: user, courses, enrollments, notifications.
+- Individual pages manage their own local state with `useState` and `useEffect`.
+
+## Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start Vite dev server (port 5173) |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build |
+
+## Environment
+
+The Vite dev server proxies `/api` requests to `http://localhost:5000` (configured in `vite.config.js`).
+
+To connect to a production backend, set the `VITE_API_URL` environment variable.

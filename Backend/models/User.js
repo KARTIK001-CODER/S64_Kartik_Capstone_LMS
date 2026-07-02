@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: function() {
     return !this.googleId;
-  }},
+  }, select: false},
   googleId: { type: String },
   avatar: { type: String },
   role: { type: String, enum: ['student', 'educator'], default: 'student' },

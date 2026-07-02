@@ -246,7 +246,7 @@ const CourseDetails = () => {
           <div className="bg-card rounded-xl w-full max-w-4xl overflow-hidden shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h3 className="text-base font-semibold text-foreground">Preview Video</h3>
-              <button onClick={closeVideoPopup} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+              <button onClick={closeVideoPopup} aria-label="Close video" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -308,12 +308,13 @@ const CourseDetails = () => {
               <Card variant="elevated" padding="md" className="sticky top-24">
                 <div className="relative mb-4 rounded-lg overflow-hidden bg-muted aspect-video">
                   {courseData.courseThumbnail ? (
-                    <img
-                      src={courseData.courseThumbnail}
-                      alt={courseData.courseTitle}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400'; }}
-                    />
+                      <img
+                        src={courseData.courseThumbnail}
+                        alt={courseData.courseTitle}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400'; }}
+                      />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground">No Image</div>
                   )}
@@ -497,7 +498,7 @@ const CourseDetails = () => {
                             </div>
                           </div>
                           {isOwn && (
-                            <button onClick={handleDeleteReview} disabled={deletingReview} className="p-1.5 text-muted-foreground hover:text-error hover:bg-error/5 rounded transition disabled:opacity-50">
+                            <button onClick={handleDeleteReview} disabled={deletingReview} aria-label="Delete review" className="p-1.5 text-muted-foreground hover:text-error hover:bg-error/5 rounded transition disabled:opacity-50">
                               <Trash2 size={14} />
                             </button>
                           )}
@@ -517,7 +518,7 @@ const CourseDetails = () => {
             <Card variant="elevated" padding="md" className="sticky top-24">
               <div className="relative mb-4 rounded-lg overflow-hidden bg-muted aspect-video">
                 {courseData.courseThumbnail ? (
-                  <img src={courseData.courseThumbnail} alt={courseData.courseTitle} className="w-full h-full object-cover" />
+                  <img src={courseData.courseThumbnail} alt={courseData.courseTitle} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">No Image</div>
                 )}

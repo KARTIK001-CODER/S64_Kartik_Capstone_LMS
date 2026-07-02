@@ -13,6 +13,12 @@ import {
   duplicateCourse,
   bulkCourseAction
 } from '../controllers/courseController.js';
+import {
+  courseValidation,
+  ratingValidation,
+  paginationValidation,
+  objectIdValidation,
+} from '../middleware/validation.js';
 
 const router = express.Router();
 
@@ -20,40 +26,41 @@ const router = express.Router();
  * @openapi
  * /api/courses:
  *   get:
- *     summary: List all published courses
+ *     summary: Get paginated list of published courses
  *     tags: [Courses]
  *     parameters:
  *       - in: query
  *         name: page
- *         schema: { type: integer }
- *         description: Page number
+ *         schema: { type: integer, default: 1 }
  *       - in: query
  *         name: limit
- *         schema: { type: integer }
- *         description: Items per page (max 50)
+ *         schema: { type: integer, default: 20 }
  *       - in: query
  *         name: search
  *         schema: { type: string }
- *         description: Search by course title
  *       - in: query
  *         name: category
  *         schema: { type: string }
- *         description: Filter by category
+ *       - in: query
+ *         name: difficulty
+ *         schema: { type: string }
+ *       - in: query
+ *         name: language
+ *         schema: { type: string }
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, enum: [newest, popular, price-asc, price-desc] }
  *     responses:
  *       200:
  *         description: Paginated list of courses
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/PaginatedCourses'
  */
-router.get('/', getCourses);
+router.get('/', paginationValidation, getCourses);
 
 /**
  * @openapi
  * /api/courses/{id}:
  *   get:
- *     summary: Get a course by ID
+ *     summary: Get a single course by ID
  *     tags: [Courses]
  *     parameters:
  *       - in: path
@@ -62,21 +69,17 @@ router.get('/', getCourses);
  *         schema: { type: string }
  *     responses:
  *       200:
- *         description: Course object
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Course'
+ *         description: Course details
  *       404:
  *         description: Course not found
  */
-router.get('/:id', getCourseById);
+router.get('/:id', objectIdValidation, getCourseById);
 
 /**
  * @openapi
  * /api/courses/educator:
  *   get:
- *     summary: Get educator's own courses (paginated)
+ *     summary: Get courses owned by the logged-in educator
  *     tags: [Courses]
  *     security:
  *       - bearerAuth: []
@@ -89,9 +92,31 @@ router.get('/:id', getCourseById);
  *         schema: { type: integer }
  *     responses:
  *       200:
- *         description: Paginated educator courses
+ *         description: Educator's courses
  */
-router.get('/educator', protect, educatorOnly, getEducatorCourses);
+router.get('/educator', protect, educatorOnly, paginationValidation, getEducatorCourses);
+
+/**
+ * @openapi
+ * /api/courses/bulk:
+ *   post:
+ *     summary: Perform bulk action on courses (publish, archive, delete)
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action: { type: string }
+ *               courseIds: { type: array, items: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Bulk action completed
+ */
 router.post('/bulk', protect, educatorOnly, bulkCourseAction);
 
 /**
@@ -108,20 +133,18 @@ router.post('/bulk', protect, educatorOnly, bulkCourseAction);
  *         multipart/form-data:
  *           schema:
  *             type: object
- *             required: [courseTitle, courseDescription, coursePrice, courseThumbnail, courseContent]
  *             properties:
+ *               courseThumbnail: { type: string, format: binary }
  *               courseTitle: { type: string }
  *               courseDescription: { type: string }
  *               coursePrice: { type: number }
- *               courseThumbnail: { type: string, format: binary }
- *               courseContent: { type: string, description: "JSON string of chapters array" }
- *               isPublished: { type: boolean }
- *               discount: { type: number }
+ *               category: { type: string }
+ *               difficulty: { type: string }
  *     responses:
  *       201:
- *         description: Created course
+ *         description: Course created
  */
-router.post('/', protect, educatorOnly, upload.single('courseThumbnail'), addCourse);
+router.post('/', protect, educatorOnly, upload.single('courseThumbnail'), courseValidation, addCourse);
 
 /**
  * @openapi
@@ -142,20 +165,13 @@ router.post('/', protect, educatorOnly, upload.single('courseThumbnail'), addCou
  *           schema:
  *             type: object
  *             properties:
- *               courseTitle: { type: string }
- *               courseDescription: { type: string }
- *               coursePrice: { type: number }
  *               courseThumbnail: { type: string, format: binary }
- *               courseContent: { type: string, description: "JSON string of chapters array" }
- *               isPublished: { type: boolean }
- *               discount: { type: number }
+ *               courseTitle: { type: string }
  *     responses:
  *       200:
- *         description: Updated course
- *       404:
- *         description: Course not found
+ *         description: Course updated
  */
-router.put('/:id', protect, educatorOnly, upload.single('courseThumbnail'), updateCourse);
+router.put('/:id', protect, educatorOnly, objectIdValidation, upload.single('courseThumbnail'), courseValidation, updateCourse);
 
 /**
  * @openapi
@@ -172,9 +188,9 @@ router.put('/:id', protect, educatorOnly, upload.single('courseThumbnail'), upda
  *         schema: { type: string }
  *     responses:
  *       201:
- *         description: Duplicated course (draft)
+ *         description: Course duplicated
  */
-router.post('/:id/duplicate', protect, educatorOnly, duplicateCourse);
+router.post('/:id/duplicate', protect, educatorOnly, objectIdValidation, duplicateCourse);
 
 /**
  * @openapi
@@ -191,17 +207,17 @@ router.post('/:id/duplicate', protect, educatorOnly, duplicateCourse);
  *         schema: { type: string }
  *     responses:
  *       200:
- *         description: Course removed
- *       404:
- *         description: Course not found
+ *         description: Course deleted
+ *       403:
+ *         description: Not authorized
  */
-router.delete('/:id', protect, educatorOnly, deleteCourse);
+router.delete('/:id', protect, educatorOnly, objectIdValidation, deleteCourse);
 
 /**
  * @openapi
  * /api/courses/{id}/rating:
  *   put:
- *     summary: Rate a course (must be enrolled)
+ *     summary: Add or update a rating/review for a course
  *     tags: [Courses]
  *     security:
  *       - bearerAuth: []
@@ -216,17 +232,32 @@ router.delete('/:id', protect, educatorOnly, deleteCourse);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [rating]
  *             properties:
  *               rating: { type: integer, minimum: 1, maximum: 5 }
  *               review: { type: string }
  *     responses:
  *       200:
- *         description: Updated course with new rating
- *       403:
- *         description: Must be enrolled to rate
+ *         description: Rating added
  */
-router.put('/:id/rating', protect, addCourseRating);
-router.delete('/:id/rating', protect, deleteCourseRating);
+router.put('/:id/rating', protect, objectIdValidation, ratingValidation, addCourseRating);
+
+/**
+ * @openapi
+ * /api/courses/{id}/rating:
+ *   delete:
+ *     summary: Delete a rating/review
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Rating deleted
+ */
+router.delete('/:id/rating', protect, objectIdValidation, deleteCourseRating);
 
 export default router;

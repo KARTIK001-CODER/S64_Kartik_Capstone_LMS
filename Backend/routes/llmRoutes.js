@@ -8,17 +8,16 @@ const LLM_CONFIG = {
   // For Ollama (default) - Updated for Llama 3.2:1b
   OLLAMA_URL: process.env.OLLAMA_URL || 'http://localhost:11434',
   OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'llama3.2:1b',
-  
+
   // For custom LLM server
   CUSTOM_LLM_URL: process.env.CUSTOM_LLM_URL,
-  
+
   // Mock mode for development
   MOCK_MODE: process.env.MOCK_MODE === 'true' || false
 };
 
 // Mock responses for development
 const MOCK_RESPONSES = {
-  // Course search suggestions (optimized for Llama 3.2:1b)
   'javascript': ' programming, web development, frontend',
   'python': ' programming, data science, machine learning',
   'react': ' development, frontend, web applications',
@@ -51,21 +50,18 @@ const MOCK_RESPONSES = {
   'default': ' courses, learning, education'
 };
 
-// Helper function to get mock response
 const getMockResponse = (prompt) => {
   const lowerPrompt = prompt.toLowerCase().trim();
-  
-  // Find the best matching mock response
+
   for (const [key, response] of Object.entries(MOCK_RESPONSES)) {
     if (lowerPrompt.includes(key)) {
       return response;
     }
   }
-  
+
   return MOCK_RESPONSES.default;
 };
 
-// Helper function to call Ollama
 const callOllama = async (prompt) => {
   try {
     const response = await axios.post(`${LLM_CONFIG.OLLAMA_URL}/api/generate`, {
@@ -82,7 +78,7 @@ Completion:`,
         stop: ['\n', '.', '!', '?']
       }
     });
-    
+
     return response.data.response.trim();
   } catch (error) {
     console.error('Ollama API error:', error.message);
@@ -90,7 +86,6 @@ Completion:`,
   }
 };
 
-// Helper function to call custom LLM server
 const callCustomLLM = async (prompt) => {
   try {
     const response = await axios.post(LLM_CONFIG.CUSTOM_LLM_URL, {
@@ -98,7 +93,7 @@ const callCustomLLM = async (prompt) => {
       max_tokens: 100,
       temperature: 0.1
     });
-    
+
     return response.data.completion || response.data.text;
   } catch (error) {
     console.error('Custom LLM API error:', error.message);
@@ -106,37 +101,57 @@ const callCustomLLM = async (prompt) => {
   }
 };
 
-// Main autocomplete endpoint
+/**
+ * @openapi
+ * /api/llm/complete:
+ *   post:
+ *     summary: Get autocomplete suggestions for course search
+ *     tags: [LLM]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [prompt]
+ *             properties:
+ *               prompt: { type: string }
+ *               context: { type: string }
+ *     responses:
+ *       200:
+ *         description: Completion result
+ *       400:
+ *         description: Prompt is required
+ *       500:
+ *         description: LLM service error
+ */
 router.post('/complete', async (req, res) => {
   try {
     const { prompt, context = '' } = req.body;
-    
+
     if (!prompt) {
-      return res.status(400).json({ 
-        error: 'Prompt is required' 
+      return res.status(400).json({
+        error: 'Prompt is required'
       });
     }
-    
+
     let completion;
-    
+
     if (LLM_CONFIG.MOCK_MODE) {
-      // Use mock responses for development
       completion = getMockResponse(prompt);
     } else if (LLM_CONFIG.CUSTOM_LLM_URL) {
-      // Use custom LLM server
       completion = await callCustomLLM(prompt);
     } else {
-      // Use Ollama (default)
       completion = await callOllama(prompt);
     }
-    
+
     res.json({
       success: true,
       completion,
       prompt,
       model: LLM_CONFIG.MOCK_MODE ? 'mock' : (LLM_CONFIG.CUSTOM_LLM_URL ? 'custom' : LLM_CONFIG.OLLAMA_MODEL)
     });
-    
+
   } catch (error) {
     console.error('Autocomplete error:', error);
     res.status(500).json({
@@ -146,7 +161,18 @@ router.post('/complete', async (req, res) => {
   }
 });
 
-// Health check endpoint for LLM service
+/**
+ * @openapi
+ * /api/llm/health:
+ *   get:
+ *     summary: Check LLM service health
+ *     tags: [LLM]
+ *     responses:
+ *       200:
+ *         description: LLM service status
+ *       503:
+ *         description: LLM service unavailable
+ */
 router.get('/health', async (req, res) => {
   try {
     if (LLM_CONFIG.MOCK_MODE) {
@@ -156,14 +182,13 @@ router.get('/health', async (req, res) => {
         message: 'Mock mode enabled'
       });
     }
-    
-    // Test connection to LLM service
+
     if (LLM_CONFIG.CUSTOM_LLM_URL) {
       await axios.get(LLM_CONFIG.CUSTOM_LLM_URL.replace('/api/complete', '/health'));
     } else {
       await axios.get(`${LLM_CONFIG.OLLAMA_URL}/api/tags`);
     }
-    
+
     res.json({
       status: 'healthy',
       mode: LLM_CONFIG.CUSTOM_LLM_URL ? 'custom' : 'ollama',
@@ -178,4 +203,4 @@ router.get('/health', async (req, res) => {
   }
 });
 
-export default router; 
+export default router;

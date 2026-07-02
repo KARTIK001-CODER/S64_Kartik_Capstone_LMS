@@ -43,7 +43,7 @@ const VideoPlayer = () => {
 
   const fetchProgress = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/enrollments/student/course/${courseId}/progress`, getAuthHeaders());
+      const res = await axios.get(`${API_BASE}/api/enrollments/${courseId}/progress`, getAuthHeaders());
       const data = res.data;
       const progress = data.progress || [];
       const completed = new Set(progress.filter(p => p.completed).map(p => p.lectureId));
@@ -171,7 +171,7 @@ const VideoPlayer = () => {
     if (completedLectures.has(lectureId)) return;
     setMarkingComplete(true);
     try {
-      await axios.put(`${API_BASE}/api/enrollments/student/course/${courseId}/progress`, { lectureId }, getAuthHeaders());
+      await axios.put(`${API_BASE}/api/enrollments/${courseId}/progress`, { lectureId }, getAuthHeaders());
       const prevCount = completedLectures.size;
       const total = courseData.courseContent.reduce((acc, ch) => acc + (ch.lectures || []).length, 0);
       setCompletedLectures(prev => { const next = new Set(prev); next.add(lectureId); return next; });
@@ -244,7 +244,7 @@ const VideoPlayer = () => {
       setCurrentLecture({ chapterIndex: chapterIdx, lectureIndex: lectureIdx });
       setError(null);
       const lectureId = lecture._id || lecture.id;
-      axios.put(`${API_BASE}/api/enrollments/student/course/${courseId}/last-watched`, { lectureId, chapterIndex: chapterIdx, lectureIndex: lectureIdx }, getAuthHeaders()).catch(() => {});
+      axios.put(`${API_BASE}/api/enrollments/${courseId}/last-watched`, { lectureId, chapterIndex: chapterIdx, lectureIndex: lectureIdx }, getAuthHeaders()).catch(() => {});
     } catch { setError('Error loading video'); }
   };
 
@@ -325,6 +325,7 @@ const VideoPlayer = () => {
                   <button
                     onClick={() => setShowSidebar(!showSidebar)}
                     className="lg:hidden p-2 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+                    aria-label={showSidebar ? "Hide sidebar" : "Show sidebar"}
                   >
                     {showSidebar ? <X size={18} /> : <FileText size={18} />}
                   </button>
