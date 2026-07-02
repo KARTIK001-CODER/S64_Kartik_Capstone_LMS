@@ -9,7 +9,7 @@ import { ProgressBar } from '../../components/ui/progress';
 import { Skeleton } from '../../components/ui/skeleton';
 import { EmptyState, ErrorState } from '../../components/ui/empty-state';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 const calculateTotalLectures = (course) => {
   if (!course?.courseContent) return 0;
