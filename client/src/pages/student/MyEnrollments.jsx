@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Line } from 'rc-progress';
 import { assets } from '../../assets/assets';
+import { AppContext } from '../../context/AppContext';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -19,6 +20,7 @@ const MyEnrollments = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [imgErrors, setImgErrors] = useState({});
+  const { fetchUserEnrolledCourses } = useContext(AppContext);
 
   useEffect(() => {
     const fetchEnrolledCourses = async () => {
@@ -41,7 +43,10 @@ const MyEnrollments = () => {
           const mapped = data.map(enrollment => ({
             ...enrollment.courseId,
             progress: enrollment.progress?.length || 0,
-            totalLectures: calculateTotalLectures(enrollment.courseId)
+            totalLectures: calculateTotalLectures(enrollment.courseId),
+            lastWatchedChapterIndex: enrollment.lastWatchedChapterIndex,
+            lastWatchedLectureIndex: enrollment.lastWatchedLectureIndex,
+            courseCompleted: enrollment.courseCompleted || false,
           }));
           setEnrolledCourses(mapped);
         } else {
@@ -89,6 +94,24 @@ const MyEnrollments = () => {
     if (!course?.progress || !course?.totalLectures) return 0;
     return (course.progress / course.totalLectures) * 100;
   };
+
+  const getContinueInfo = (course) => {
+    if (course.courseCompleted) return null;
+    if (course.lastWatchedChapterIndex === undefined || course.lastWatchedLectureIndex === undefined) return null;
+    const chapter = course.courseContent?.[course.lastWatchedChapterIndex];
+    const lecture = chapter?.lectures?.[course.lastWatchedLectureIndex];
+    if (!lecture) return null;
+    return {
+      chapterTitle: chapter.title || chapter.chapterTitle || '',
+      lectureTitle: lecture.title || lecture.lectureTitle || '',
+      chapterIndex: course.lastWatchedChapterIndex,
+      lectureIndex: course.lastWatchedLectureIndex,
+    };
+  };
+
+  useEffect(() => {
+    fetchUserEnrolledCourses?.();
+  }, [fetchUserEnrolledCourses]);
 
   if (isLoading) {
     return (
@@ -146,13 +169,19 @@ const MyEnrollments = () => {
                     onError={() => setImgErrors(prev => ({ ...prev, [course._id]: true }))}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 sm:p-4">
-                    <span className={`px-2 sm:px-4 py-1 text-xs sm:text-sm font-bold rounded-full ${
-                      calculateProgress(course) === 100 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-blue-500 text-white'
-                    }`}>
-                      {calculateProgress(course) === 100 ? 'Completed' : 'In Progress'}
-                    </span>
+                    {course.courseCompleted ? (
+                      <span className="px-2 sm:px-4 py-1 text-xs sm:text-sm font-bold rounded-full bg-green-500 text-white">
+                        Completed
+                      </span>
+                    ) : course.lastWatchedChapterIndex !== undefined ? (
+                      <span className="px-2 sm:px-4 py-1 text-xs sm:text-sm font-bold rounded-full bg-blue-500 text-white">
+                        Continue Learning
+                      </span>
+                    ) : (
+                      <span className="px-2 sm:px-4 py-1 text-xs sm:text-sm font-bold rounded-full bg-blue-500 text-white">
+                        In Progress
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -161,6 +190,14 @@ const MyEnrollments = () => {
                   <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
                     {course.courseTitle}
                   </h3>
+                  {(() => {
+                    const info = getContinueInfo(course);
+                    return info ? (
+                      <p className="text-xs text-blue-600 font-medium mb-2">
+                        Continue from: {info.lectureTitle}
+                      </p>
+                    ) : null;
+                  })()}
                   <p className="text-sm text-gray-600 mb-4">
                     Duration: {calculateCourseDuration(course)}
                   </p>

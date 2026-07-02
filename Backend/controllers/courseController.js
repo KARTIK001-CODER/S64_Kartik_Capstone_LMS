@@ -38,6 +38,11 @@ export const addCourseRating = asyncHandler(async (req, res) => {
   res.json(course);
 });
 
+export const deleteCourseRating = asyncHandler(async (req, res) => {
+  const course = await courseService.deleteRating(req.params.id, req.user._id);
+  res.json(course);
+});
+
 export const getEducatorCourses = asyncHandler(async (req, res) => {
   const result = await courseService.listEducatorCourses(req.user._id, req.query);
   res.json(result);

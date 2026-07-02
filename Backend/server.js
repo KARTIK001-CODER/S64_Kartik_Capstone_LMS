@@ -23,6 +23,8 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import paymentRoutes from './routes/payment.js';
 import educatorRoutes from './routes/educator.js';
+import studentRoutes from './routes/studentRoutes.js';
+import certificateRoutes from './routes/certificateRoutes.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger.js';
 
@@ -73,6 +75,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/educator', educatorRoutes);
+app.use('/api/student', studentRoutes);
+app.use('/api/certificates', certificateRoutes);
 
 // ── API Docs (Swagger) ──────────────────────────────────────────
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {

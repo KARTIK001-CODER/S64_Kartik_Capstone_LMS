@@ -45,7 +45,14 @@ export const getProgress = async (studentId, courseId) => {
     err.statusCode = 404;
     throw err;
   }
-  return { progress: enrollment.progress };
+  return {
+    progress: enrollment.progress,
+    lastWatchedLectureId: enrollment.lastWatchedLectureId,
+    lastWatchedChapterIndex: enrollment.lastWatchedChapterIndex,
+    lastWatchedLectureIndex: enrollment.lastWatchedLectureIndex,
+    courseCompleted: enrollment.courseCompleted,
+    courseCompletedAt: enrollment.courseCompletedAt,
+  };
 };
 
 export const updateProgress = async (studentId, courseId, lectureId) => {
@@ -64,6 +71,33 @@ export const updateProgress = async (studentId, courseId, lectureId) => {
     enrollment.progress[progressIndex].completedAt = new Date();
   }
 
+  const course = await Course.findById(courseId);
+  if (course) {
+    const totalLectures = course.courseContent?.reduce(
+      (acc, ch) => acc + (ch.lectures || []).length, 0
+    ) || 0;
+    if (totalLectures > 0 && enrollment.progress.length >= totalLectures && !enrollment.courseCompleted) {
+      enrollment.courseCompleted = true;
+      enrollment.courseCompletedAt = new Date();
+    }
+  }
+
   await enrollment.save();
   return enrollment;
+};
+
+export const updateLastWatched = async (studentId, courseId, { lectureId, chapterIndex, lectureIndex }) => {
+  const enrollment = await Enrollment.findOne({ studentId, courseId });
+  if (!enrollment) {
+    const err = new Error('Not enrolled in this course');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  enrollment.lastWatchedLectureId = lectureId;
+  enrollment.lastWatchedChapterIndex = chapterIndex;
+  enrollment.lastWatchedLectureIndex = lectureIndex;
+  await enrollment.save();
+
+  return { success: true };
 };

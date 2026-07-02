@@ -55,9 +55,13 @@ const Navbar = () => {
                   Become Educator
                 </button>
               )}
-              {user.role === "educator" && (
+              {user.role === "educator" ? (
                 <Link to="/educator/reports" className="hover:text-blue-600 transition">
                   Reports
+                </Link>
+              ) : (
+                <Link to="/dashboard" className="hover:text-blue-600 transition">
+                  Dashboard
                 </Link>
               )}
               <Link to="/my-enrollments" className="hover:text-blue-600 transition">

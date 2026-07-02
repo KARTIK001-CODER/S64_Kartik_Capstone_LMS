@@ -8,6 +8,7 @@ import Loading from './components/student/Loading';
 
 // Pages — eagerly loaded (frequently visited)
 import Home from './pages/student/Home';
+import NotFound from './pages/NotFound';
 import CoursesList from './pages/student/CoursesList';
 import Educator from './pages/educator/Educator';
 import Dashboard from './pages/educator/Dashboard';
@@ -18,6 +19,8 @@ import Login from './pages/Login';
 const CourseDetails = lazy(() => import('./pages/student/CourseDetails'));
 const MyEnrollments = lazy(() => import('./pages/student/MyEnrollments'));
 const Player = lazy(() => import('./pages/student/Player'));
+const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
+const Profile = lazy(() => import('./pages/student/Profile'));
 const AddCourse = lazy(() => import('./pages/educator/AddCourse'));
 const EditCourse = lazy(() => import('./pages/educator/EditCourse'));
 const MyCourses = lazy(() => import('./pages/educator/MyCourses'));
@@ -26,9 +29,9 @@ const Reports = lazy(() => import('./pages/educator/Reports'));
 
 const ProtectedRoute = ({ children, requireEducator = false }) => {
   const { user, loading } = useAppContext();
-  if (loading) return <Loading />;
-  if (!user) return <Navigate to="/login" />;
-  if (requireEducator && user.role !== 'educator') return <Navigate to="/" />;
+  if (loading) return <Loading fullScreen />;
+  if (!user) return <Navigate to="/login" state={{ message: 'Please log in to access this page' }} />;
+  if (requireEducator && user.role !== 'educator') return <Navigate to="/" state={{ message: 'Educator access required' }} />;
   return children;
 };
 
@@ -49,6 +52,11 @@ const App = () => {
           <Route path="/login" element={<Login />} />
 
           {/* Protected Student Routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <StudentDashboard />
+            </ProtectedRoute>
+          } />
           <Route path="/my-enrollments" element={
             <ProtectedRoute>
               <MyEnrollments />
@@ -57,6 +65,11 @@ const App = () => {
           <Route path="/player/:courseId" element={
             <ProtectedRoute>
               <Player />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           } />
 
@@ -101,6 +114,9 @@ const App = () => {
               <Reports />
             </ProtectedRoute>
           } />
+
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </div>

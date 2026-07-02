@@ -8,7 +8,8 @@ import {
   updateCourse,
   deleteCourse,
   getEducatorCourses,
-  addCourseRating
+  addCourseRating,
+  deleteCourseRating
 } from '../controllers/courseController.js';
 
 const router = express.Router();
@@ -204,5 +205,6 @@ router.delete('/:id', protect, educatorOnly, deleteCourse);
  *         description: Must be enrolled to rate
  */
 router.put('/:id/rating', protect, addCourseRating);
+router.delete('/:id/rating', protect, deleteCourseRating);
 
 export default router;

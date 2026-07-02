@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
 import Loading from '../../components/student/Loading';
@@ -7,6 +7,7 @@ import Footer from '../../components/student/Footer';
 import YouTube from 'react-youtube';
 import humanizeDuration from 'humanize-duration';
 import axios from 'axios';
+import { Trash2 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID;
@@ -110,6 +111,36 @@ const CourseDetails = () => {
 
     setSelectedVideoId(videoId);
     setShowVideoPopup(true);
+  };
+
+  const [deletingReview, setDeletingReview] = useState(false);
+
+  const getAuthHeaders = useCallback(() => ({
+    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+  }), []);
+
+  const handleDeleteReview = async (e) => {
+    e.stopPropagation();
+    if (deletingReview) return;
+    setDeletingReview(true);
+    try {
+      await axios.delete(
+        `${API_BASE_URL}/api/courses/${id}/rating`,
+        getAuthHeaders()
+      );
+      setCourseData(prev => ({
+        ...prev,
+        courseRatings: prev.courseRatings.filter(r => {
+          const studentId = r.student?._id || r.student;
+          if (!user) return true;
+          return studentId.toString() !== (user._id || user.id).toString();
+        })
+      }));
+    } catch {
+      console.error('Failed to delete review');
+    } finally {
+      setDeletingReview(false);
+    }
   };
 
   const extractYouTubeId = (url) => {
@@ -438,6 +469,58 @@ const CourseDetails = () => {
                 dangerouslySetInnerHTML={{ __html: courseData.courseDescription }}
               />
             </div>
+
+            {/* Reviews */}
+            <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+              <h2 className="text-xl font-bold mb-4">
+                Student Reviews ({(courseData.courseRatings || []).length})
+              </h2>
+              {(courseData.courseRatings || []).length > 0 ? (
+                <div className="space-y-4">
+                  {courseData.courseRatings.map((review) => {
+                    const studentId = review.student?._id || review.student;
+                    const isOwn = user && studentId?.toString() === (user._id || user.id).toString();
+                    return (
+                      <div key={review._id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3 mb-1">
+                            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm">
+                              {(review.student?.name || 'A').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {review.student?.name || 'Anonymous'}
+                              </p>
+                              <div className="flex items-center gap-1">
+                                <Stars count={review.rating} />
+                                <span className="text-xs text-gray-400 ml-1">
+                                  {new Date(review.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          {isOwn && (
+                            <button
+                              onClick={handleDeleteReview}
+                              disabled={deletingReview}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition disabled:opacity-50"
+                              title="Delete review"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                        {review.review && (
+                          <p className="text-sm text-gray-600 mt-1 ml-12">{review.review}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">No reviews yet. Be the first to review!</p>
+              )}
+            </div>
           </div>
 
           {/* Right Sidebar - Course Card */}
@@ -541,6 +624,16 @@ const CourseDetails = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const Stars = ({ count }) => {
+  return (
+    <span className="inline-flex gap-0.5">
+      {[1, 2, 3, 4, 5].map(i => (
+        <span key={i} className={`text-xs ${i <= count ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
+      ))}
+    </span>
   );
 };
 

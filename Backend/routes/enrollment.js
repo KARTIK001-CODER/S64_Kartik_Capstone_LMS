@@ -4,7 +4,8 @@ import {
   enrollCourse,
   getEnrolledCourses,
   getCourseProgress,
-  updateCourseProgress
+  updateCourseProgress,
+  updateLastWatched
 } from '../controllers/enrollmentController.js';
 
 const router = express.Router();
@@ -104,5 +105,37 @@ router.get('/student/course/:courseId/progress', getCourseProgress);
  *         description: Not enrolled
  */
 router.put('/student/course/:courseId/progress', updateCourseProgress);
+
+/**
+ * @openapi
+ * /api/enrollments/student/course/{courseId}/last-watched:
+ *   put:
+ *     summary: Update last-watched lecture position
+ *     tags: [Enrollments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [lectureId, chapterIndex, lectureIndex]
+ *             properties:
+ *               lectureId: { type: string }
+ *               chapterIndex: { type: integer }
+ *               lectureIndex: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Last-watched position updated
+ *       404:
+ *         description: Not enrolled
+ */
+router.put('/student/course/:courseId/last-watched', updateLastWatched);
 
 export default router;
