@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { assets } from '../../assets/assets';
-import NavBar from '../../components/educator/NavBar';
-import Sidebar from '../../components/educator/Sidebar';
 
 const EditCourse = () => {
   const { id } = useParams();
@@ -18,6 +16,8 @@ const EditCourse = () => {
     courseThumbnail: '',
     courseContent: []
   });
+
+  const [thumbnailFile, setThumbnailFile] = useState(null);
 
   const [currentChapter, setCurrentChapter] = useState({
     title: '',
@@ -141,9 +141,11 @@ const EditCourse = () => {
 
   const handleThumbnailChange = (e) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setThumbnailFile(file);
       setForm(prev => ({
         ...prev,
-        courseThumbnail: URL.createObjectURL(e.target.files[0])
+        courseThumbnail: URL.createObjectURL(file)
       }));
     }
   };
@@ -163,25 +165,30 @@ const EditCourse = () => {
     }
 
     try {
-      const user = JSON.parse(localStorage.getItem('user'));
-      if (!user || !user._id) {
-        setMessage('User information not found. Please log in again.');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setMessage('Authentication token not found. Please log in again.');
         return;
       }
 
-      const payload = {
-        ...form,
-        coursePrice: Number(form.coursePrice),
-        discount: Number(form.discount)
-      };
+      const formData = new FormData();
+      formData.append('courseTitle', form.courseTitle);
+      formData.append('courseDescription', form.courseDescription);
+      formData.append('coursePrice', Number(form.coursePrice));
+      formData.append('discount', Number(form.discount));
+      formData.append('isPublished', form.isPublished);
+      formData.append('courseContent', JSON.stringify(form.courseContent));
+
+      if (thumbnailFile) {
+        formData.append('courseThumbnail', thumbnailFile);
+      }
 
       const res = await fetch(`http://localhost:5000/api/courses/${id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(payload)
+        body: formData
       });
 
       const data = await res.json();
@@ -191,11 +198,9 @@ const EditCourse = () => {
           navigate('/educator/my-courses');
         }, 1500);
       } else {
-        console.error('Server error response:', data);
         setMessage(data.message || data.error || 'Failed to update course');
       }
     } catch (err) {
-      console.error('Error updating course:', err);
       setMessage(`Error connecting to server: ${err.message}`);
     }
   };
@@ -212,12 +217,8 @@ const EditCourse = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <NavBar />
-      <div className="flex flex-1">
-        <Sidebar />
-        <div className="flex-1 p-8">
-          <div className="max-w-4xl mx-auto">
+    <div className="p-8">
+      <div className="max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Edit Course</h2>
             
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -523,8 +524,6 @@ const EditCourse = () => {
             )}
           </div>
         </div>
-      </div>
-    </div>
   );
 };
 

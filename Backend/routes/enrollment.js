@@ -9,19 +9,100 @@ import {
 
 const router = express.Router();
 
-// Protected routes
 router.use(protect);
 
-// Get all enrolled courses
+/**
+ * @openapi
+ * /api/enrollments/student/enrolled-courses:
+ *   get:
+ *     summary: Get all enrolled courses for the logged-in student
+ *     tags: [Enrollments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of enrollment objects with populated course data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Enrollment'
+ */
 router.get('/student/enrolled-courses', getEnrolledCourses);
 
-// Enroll in a course
+/**
+ * @openapi
+ * /api/enrollments/student/enroll/{courseId}:
+ *   post:
+ *     summary: Enroll in a course
+ *     tags: [Enrollments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       201:
+ *         description: Enrollment created
+ *       400:
+ *         description: Already enrolled
+ *       404:
+ *         description: Course not found
+ */
 router.post('/student/enroll/:courseId', enrollCourse);
 
-// Get course progress
+/**
+ * @openapi
+ * /api/enrollments/student/course/{courseId}/progress:
+ *   get:
+ *     summary: Get course progress for the logged-in student
+ *     tags: [Enrollments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Progress object with lecture completion status
+ *       404:
+ *         description: Not enrolled
+ */
 router.get('/student/course/:courseId/progress', getCourseProgress);
 
-// Update course progress
+/**
+ * @openapi
+ * /api/enrollments/student/course/{courseId}/progress:
+ *   put:
+ *     summary: Mark a lecture as completed
+ *     tags: [Enrollments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [lectureId]
+ *             properties:
+ *               lectureId: { type: string }
+ *     responses:
+ *       200:
+ *         description: Updated enrollment with new progress
+ *       404:
+ *         description: Not enrolled
+ */
 router.put('/student/course/:courseId/progress', updateCourseProgress);
 
-export default router; 
+export default router;

@@ -1,11 +1,11 @@
-const {
+import {
   validateEmail,
   validatePassword,
   updateLoginAttempts,
   isUserLockedOut,
   getRemainingLockoutTime,
   validateCourseData
-} = require('../validation.js');
+} from '../validation.js';
 
 describe('validateEmail', () => {
   test('should return true for valid email addresses', () => {

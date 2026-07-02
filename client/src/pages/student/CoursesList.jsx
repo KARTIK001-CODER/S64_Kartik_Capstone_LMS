@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import SearchBar from "../../components/student/SearchBar";
 import { useNavigate, useParams } from "react-router-dom";
 import CourseCard from "../../components/student/CourseCard";
@@ -6,16 +6,19 @@ import Footer from "../../components/student/Footer";
 import * as jwt_decode from "jwt-decode";
 import axios from "axios";
 
+const API_BASE = 'http://localhost:5000';
+
 const CoursesList = () => {
   const navigate = useNavigate();
   const { input } = useParams();
   const [courses, setCourses] = useState([]);
-  const [filteredCourses, setFilteredCourses] = useState([]);
   const [searchTerm, setSearchTerm] = useState(input || "");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState("default");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const checkAuth = () => {
@@ -51,77 +54,6 @@ const CoursesList = () => {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
-  // Fetch courses from API
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get("http://localhost:5000/api/courses", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setCourses(response.data);
-        setError(null);
-      } catch (err) {
-        setError("Failed to fetch courses. Please try again later.");
-        console.error("Error fetching courses:", err);
-      }
-    };
-
-    if (isAuthenticated) {
-      fetchCourses();
-    }
-  }, [isAuthenticated]);
-
-  // Sort courses based on selected criteria
-  const sortCourses = (coursesToSort) => {
-    if (!coursesToSort || coursesToSort.length === 0) return [];
-    
-    const sortedCourses = [...coursesToSort];
-    switch (sortBy) {
-      case "price-asc":
-        return sortedCourses.sort((a, b) => (a.coursePrice || 0) - (b.coursePrice || 0));
-      case "price-desc":
-        return sortedCourses.sort((a, b) => (b.coursePrice || 0) - (a.coursePrice || 0));
-      case "title-asc":
-        return sortedCourses.sort((a, b) => (a.courseTitle || '').localeCompare(b.courseTitle || ''));
-      case "title-desc":
-        return sortedCourses.sort((a, b) => (b.courseTitle || '').localeCompare(a.courseTitle || ''));
-      case "rating":
-        return sortedCourses.sort((a, b) => {
-          const ratingA = a.courseRatings?.length ? 
-            a.courseRatings.reduce((acc, curr) => acc + (curr.rating || 0), 0) / a.courseRatings.length : 0;
-          const ratingB = b.courseRatings?.length ? 
-            b.courseRatings.reduce((acc, curr) => acc + (curr.rating || 0), 0) / b.courseRatings.length : 0;
-          return ratingB - ratingA;
-        });
-      default:
-        return sortedCourses;
-    }
-  };
-
-  // Filter and sort courses whenever courses, searchTerm, or sortBy changes
-  useEffect(() => {
-    if (!courses || courses.length === 0) {
-      setFilteredCourses([]);
-      return;
-    }
-
-    let tempCourses = [...courses];
-    
-    // Apply search filter
-    if (searchTerm) {
-      tempCourses = tempCourses.filter((item) =>
-        item.courseTitle?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    // Apply sorting
-    tempCourses = sortCourses(tempCourses);
-    setFilteredCourses(tempCourses);
-  }, [courses, searchTerm, sortBy]);
-
   // Set initial search term from URL parameter
   useEffect(() => {
     if (input) {
@@ -129,8 +61,73 @@ const CoursesList = () => {
     }
   }, [input]);
 
+  // Fetch courses with search + pagination
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const params = new URLSearchParams({ page, limit: 12 });
+        if (searchTerm) params.set('search', searchTerm);
+
+        const response = await axios.get(
+          `${API_BASE}/api/courses?${params}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const data = response.data;
+        if (data?.courses) {
+          setCourses(data.courses);
+          setTotalPages(data.pages || 1);
+        } else if (Array.isArray(data)) {
+          setCourses(data);
+        }
+        setError(null);
+      } catch (err) {
+        setError("Failed to fetch courses. Please try again later.");
+      }
+    };
+
+    if (isAuthenticated) {
+      fetchCourses();
+    }
+  }, [isAuthenticated, searchTerm, page]);
+
+  // Sort locally (client-side, after fetch)
+  const sortedCourses = useMemo(() => {
+    if (!courses || courses.length === 0) return [];
+    const sorted = [...courses];
+    switch (sortBy) {
+      case "price-asc":
+        return sorted.sort((a, b) => (a.coursePrice || 0) - (b.coursePrice || 0));
+      case "price-desc":
+        return sorted.sort((a, b) => (b.coursePrice || 0) - (a.coursePrice || 0));
+      case "title-asc":
+        return sorted.sort((a, b) => (a.courseTitle || '').localeCompare(b.courseTitle || ''));
+      case "title-desc":
+        return sorted.sort((a, b) => (b.courseTitle || '').localeCompare(a.courseTitle || ''));
+      case "rating":
+        return sorted.sort((a, b) => {
+          const ratingA = a.courseRatings?.length
+            ? a.courseRatings.reduce((s, r) => s + (r.rating || 0), 0) / a.courseRatings.length : 0;
+          const ratingB = b.courseRatings?.length
+            ? b.courseRatings.reduce((s, r) => s + (r.rating || 0), 0) / b.courseRatings.length : 0;
+          return ratingB - ratingA;
+        });
+      default:
+        return sorted;
+    }
+  }, [courses, sortBy]);
+
   const handleSearch = (newSearchTerm) => {
     setSearchTerm(newSearchTerm);
+    setPage(1);
+  };
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   if (isLoading) {
@@ -213,9 +210,9 @@ const CoursesList = () => {
           </div>
         </div>
 
-        {filteredCourses.length > 0 ? (
+        {sortedCourses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
-            {filteredCourses.map((course, index) => (
+            {sortedCourses.map((course, index) => (
               <CourseCard key={course._id || index} course={course} />
             ))}
           </div>
@@ -228,12 +225,35 @@ const CoursesList = () => {
             </p>
             {searchTerm && (
               <button
-                onClick={() => setSearchTerm("")}
+                onClick={() => { setSearchTerm(""); setPage(1); }}
                 className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 font-medium"
               >
                 Clear Search
               </button>
             )}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-4 mt-8 pb-8">
+            <button
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-600">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
           </div>
         )}
       </div>

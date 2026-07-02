@@ -1,7 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import NavBar from '../../components/educator/NavBar';
-import Sidebar from '../../components/educator/Sidebar';
 
 const AddCourse = () => {
   const navigate = useNavigate();
@@ -17,6 +15,7 @@ const AddCourse = () => {
 
   const [message, setMessage] = useState('');
   const fileInputRef = useRef();
+  const [thumbnailFile, setThumbnailFile] = useState(null);
   const [currentChapter, setCurrentChapter] = useState({
     title: '',
     description: '',
@@ -122,9 +121,11 @@ const AddCourse = () => {
 
   const handleThumbnailChange = (e) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setThumbnailFile(file);
       setForm(prev => ({
         ...prev,
-        courseThumbnail: URL.createObjectURL(e.target.files[0])
+        courseThumbnail: URL.createObjectURL(file)
       }));
     }
   };
@@ -144,28 +145,32 @@ const AddCourse = () => {
     }
 
     try {
-      const user = JSON.parse(localStorage.getItem('user'));
-      if (!user || !user._id) {
-        setMessage('User information not found. Please log in again.');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setMessage('Authentication token not found. Please log in again.');
         return;
       }
 
-      // Log the request payload for debugging
-      const payload = {
-        ...form,
-        coursePrice: Number(form.coursePrice),
-        discount: Number(form.discount),
-        educator: user._id
-      };
-      console.log('Request payload:', payload);
+      const formData = new FormData();
+      formData.append('courseTitle', form.courseTitle);
+      formData.append('courseDescription', form.courseDescription);
+      formData.append('coursePrice', Number(form.coursePrice));
+      formData.append('discount', Number(form.discount));
+      formData.append('isPublished', form.isPublished);
+      formData.append('courseContent', JSON.stringify(form.courseContent));
+
+      if (thumbnailFile) {
+        formData.append('courseThumbnail', thumbnailFile);
+      } else if (form.courseThumbnail) {
+        formData.append('courseThumbnail', form.courseThumbnail);
+      }
 
       const res = await fetch('http://localhost:5000/api/courses', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(payload)
+        body: formData
       });
 
       const data = await res.json();
@@ -173,22 +178,16 @@ const AddCourse = () => {
         setMessage('Course added successfully!');
         navigate('/educator/my-courses');
       } else {
-        console.error('Server error response:', data);
         setMessage(data.message || data.error || 'Failed to add course');
       }
     } catch (err) {
-      console.error('Error submitting course:', err);
       setMessage(`Error connecting to server: ${err.message}`);
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <NavBar />
-      <div className="flex flex-1">
-        <Sidebar />
-        <div className="flex-1 p-8">
-          <form onSubmit={handleSubmit} className="w-full max-w-4xl space-y-6">
+    <div className="p-8">
+      <form onSubmit={handleSubmit} className="w-full max-w-4xl space-y-6">
             <div>
               <label className="block text-sm font-medium mb-1">Course Title</label>
               <input
@@ -435,8 +434,6 @@ const AddCourse = () => {
             </div>
           )}
         </div>
-      </div>
-    </div>
   );
 };
 

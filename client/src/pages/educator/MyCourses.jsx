@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { assets } from '../../assets/assets';
 import axios from 'axios';
-import NavBar from '../../components/educator/NavBar';
-import Sidebar from '../../components/educator/Sidebar';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -59,7 +57,9 @@ const MyCourses = () => {
 
         const response = await api.get('/api/courses/educator');
 
-        if (Array.isArray(response.data)) {
+        if (response.data?.courses) {
+          setCourses(response.data.courses);
+        } else if (Array.isArray(response.data)) {
           setCourses(response.data);
         } else {
           setCourses([]);
@@ -126,13 +126,9 @@ const MyCourses = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <NavBar />
-      <div className="flex flex-1">
-        <Sidebar />
-        <div className="flex-1 p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">My Courses</h2>
+    <div className="p-8">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">My Courses</h2>
             <button
               onClick={() => navigate('/educator/add-course')}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
@@ -209,8 +205,6 @@ const MyCourses = () => {
             </div>
           )}
         </div>
-      </div>
-    </div>
   );
 };
 

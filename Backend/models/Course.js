@@ -34,10 +34,14 @@ const courseSchema = new mongoose.Schema({
   enrolledStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   courseRatings: [ratingSchema],
   courseThumbnail: { type: String, required: true },
+  category: { type: String, default: 'General' },
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-// Create a model from the schema
+courseSchema.index({ educator: 1 });
+courseSchema.index({ isPublished: 1, createdAt: -1 });
+courseSchema.index({ category: 1 });
+
 const Course = mongoose.model('Course', courseSchema);
 
 export default Course;

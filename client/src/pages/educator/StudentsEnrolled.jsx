@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Loading from '../../components/student/Loading';
-import NavBar from '../../components/educator/NavBar';
-import Sidebar from '../../components/educator/Sidebar';
+import { assets } from '../../assets/assets';
 
 const StudentsEnrolled = () => {
   const [courses, setCourses] = useState([]);
@@ -18,14 +17,16 @@ const StudentsEnrolled = () => {
         }
 
         const response = await axios.get('http://localhost:5000/api/courses/educator', {
-          headers: { 
+          headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
 
-        if (Array.isArray(response.data)) {
-          setCourses(response.data);
+        const data = response.data?.courses || response.data;
+
+        if (Array.isArray(data)) {
+          setCourses(data);
         } else {
           setCourses([]);
         }
@@ -45,13 +46,9 @@ const StudentsEnrolled = () => {
   if (error) return <div className="p-8 text-red-500">{error}</div>;
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <NavBar />
-      <div className="flex flex-1">
-        <Sidebar />
-        <div className="flex-1 p-8">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Enrolled Students</h2>
-          
+    <div className="p-8">
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">Enrolled Students</h2>
+
           {courses.length > 0 ? (
             <div className="space-y-6">
               {courses.map(course => (
@@ -60,7 +57,7 @@ const StudentsEnrolled = () => {
                     <h3 className="text-lg font-semibold text-gray-800">{course.courseTitle}</h3>
                     <p className="text-sm text-gray-500">{course.enrolledStudents?.length || 0} students enrolled</p>
                   </div>
-                  
+
                   {course.enrolledStudents && course.enrolledStudents.length > 0 ? (
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
@@ -81,7 +78,7 @@ const StudentsEnrolled = () => {
                                 <div className="flex-shrink-0 h-10 w-10">
                                   <img
                                     className="h-10 w-10 rounded-full"
-                                    src={student.avatar || 'https://via.placeholder.com/40'}
+                                    src={student.avatar || assets.profile_img}
                                     alt={student.name}
                                   />
                                 </div>
@@ -113,8 +110,6 @@ const StudentsEnrolled = () => {
             </div>
           )}
         </div>
-      </div>
-    </div>
   );
 };
 

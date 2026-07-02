@@ -5,7 +5,7 @@ import User from '../models/User.js';
 export const getEnrolledStudents = async (req, res) => {
     try {
         const { courseId } = req.params;
-        const educatorId = req.user.id;
+        const educatorId = req.user._id;
 
         // Check if course exists and belongs to the educator
         const course = await Course.findOne({

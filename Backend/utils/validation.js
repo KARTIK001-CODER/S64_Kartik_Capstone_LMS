@@ -89,7 +89,7 @@ const validateCourseData = (courseData) => {
   };
 };
 
-module.exports = {
+export {
   validateEmail,
   validatePassword,
   updateLoginAttempts,

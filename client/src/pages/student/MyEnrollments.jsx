@@ -1,15 +1,24 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppContext } from '../../context/AppContext';
 import { Line } from 'rc-progress';
-import YouTube from 'react-youtube';
-import axios from 'axios';
+import { assets } from '../../assets/assets';
+
+const API_BASE = 'http://localhost:5000';
+
+const calculateTotalLectures = (course) => {
+  if (!course?.courseContent) return 0;
+  return course.courseContent.reduce(
+    (acc, chapter) => acc + (chapter.lectures || chapter.chapterContent || []).length,
+    0
+  );
+};
 
 const MyEnrollments = () => {
-  const { enrolledCourses, setEnrolledCourses, user } = useContext(AppContext);
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [imgErrors, setImgErrors] = useState({});
 
   useEffect(() => {
     const fetchEnrolledCourses = async () => {
@@ -19,18 +28,26 @@ const MyEnrollments = () => {
           throw new Error('No authentication token found');
         }
 
-        const response = await axios.get('/api/student/enrolled-courses', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await fetch(
+          `${API_BASE}/api/enrollments/student/enrolled-courses`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
 
-        if (Array.isArray(response.data)) {
-          setEnrolledCourses(response.data);
+        const data = await response.json();
+
+        if (Array.isArray(data)) {
+          const mapped = data.map(enrollment => ({
+            ...enrollment.courseId,
+            progress: enrollment.progress?.length || 0,
+            totalLectures: calculateTotalLectures(enrollment.courseId)
+          }));
+          setEnrolledCourses(mapped);
         } else {
-          console.error('Expected array of enrolled courses but got:', response.data);
           setEnrolledCourses([]);
         }
       } catch (error) {
-        console.error('Error fetching enrolled courses:', error);
         setError(error.message || 'Failed to fetch enrolled courses');
         setEnrolledCourses([]);
       } finally {
@@ -39,7 +56,7 @@ const MyEnrollments = () => {
     };
 
     fetchEnrolledCourses();
-  }, [setEnrolledCourses]);
+  }, []);
 
   // Calculate course duration from course content
   const calculateCourseDuration = (course) => {
@@ -123,9 +140,10 @@ const MyEnrollments = () => {
                 {/* Course Image Banner */}
                 <div className="relative h-32 sm:h-40 md:h-48 overflow-hidden">
                   <img 
-                    src={course.courseThumbnail} 
+                    src={imgErrors[course._id] ? assets.course_1_thumbnail : (course.courseThumbnail || assets.course_1_thumbnail)} 
                     alt={course.courseTitle} 
                     className="w-full h-full object-cover"
+                    onError={() => setImgErrors(prev => ({ ...prev, [course._id]: true }))}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 sm:p-4">
                     <span className={`px-2 sm:px-4 py-1 text-xs sm:text-sm font-bold rounded-full ${

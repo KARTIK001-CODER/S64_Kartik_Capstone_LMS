@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { dummyCourses } from '../assets/assets';
@@ -61,6 +61,8 @@ export const AppContextProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [user, setUser] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Initialize auth state from localStorage
   useEffect(() => {
@@ -68,7 +70,7 @@ export const AppContextProvider = ({ children }) => {
       try {
         const token = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
-        
+
         if (token && storedUser) {
           const parsedUser = JSON.parse(storedUser);
           setUser(parsedUser);
@@ -104,17 +106,17 @@ export const AppContextProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await api.get('/api/courses');
-      
-      if (Array.isArray(response.data)) {
+
+      if (response.data?.courses) {
+        setAllCourses(response.data.courses);
+      } else if (Array.isArray(response.data)) {
         setAllCourses(response.data);
       } else {
-        console.error('Expected array of courses but got:', response.data);
         setAllCourses([]);
       }
     } catch (err) {
-      console.error('Error fetching courses:', err);
       setError('Failed to load courses. Please try again later.');
       setAllCourses([]);
     } finally {
@@ -133,16 +135,18 @@ export const AppContextProvider = ({ children }) => {
   };
 
   const calculateRating = (course) => {
-    if (!course?.courseRatings?.length) return 0;
-    return course.courseRatings.reduce((acc, rating) => acc + rating.rating, 0) / course.courseRatings.length;
+    const ratings = course?.courseRatings || course?.courseRating || [];
+    if (ratings.length === 0) return 0;
+    return ratings.reduce((acc, rating) => acc + rating.rating, 0) / ratings.length;
   };
 
   const calculateCourseDuration = (course) => {
     if (!course?.courseContent) return 'N/A';
-    
-    const totalMinutes = course.courseContent.reduce((acc, chapter) => 
-      acc + chapter.chapterContent.reduce((sum, lecture) => sum + (lecture.lectureDuration || 0), 0), 0);
-    
+
+    // Calculate total minutes from all lectures in all chapters
+    const totalMinutes = course.courseContent.reduce((acc, chapter) =>
+      acc + (chapter.lectures || chapter.chapterContent || []).reduce((sum, lecture) => sum + (lecture.duration || lecture.lectureDuration || 0), 0), 0);
+
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     return `${hours}h ${minutes}m`;
@@ -150,7 +154,7 @@ export const AppContextProvider = ({ children }) => {
 
   const calculateTotalLectures = (course) => {
     if (!course?.courseContent) return 0;
-    return course.courseContent.reduce((acc, chapter) => acc + chapter.chapterContent.length, 0);
+    return course.courseContent.reduce((acc, chapter) => acc + (chapter.lectures || chapter.chapterContent || []).length, 0);
   };
 
   const fetchUserEnrolledCourses = async () => {
@@ -174,15 +178,49 @@ export const AppContextProvider = ({ children }) => {
     }
   };
 
+  const fetchNotifications = async () => {
+    if (!user?._id) return;
+    try {
+      const response = await api.get(`/api/notifications/${user._id}`);
+      setNotifications(response.data);
+      setUnreadCount(response.data.filter(n => !n.isRead).length);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const markNotificationRead = async (id) => {
+    try {
+      await api.patch(`/api/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    if (!user?._id) return;
+    try {
+      await api.patch('/api/notifications/mark-all', { userId: user._id });
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
   useEffect(() => {
+    fetchAllCourses();
+
     if (user) {
-      fetchAllCourses();
       checkEducatorStatus();
       fetchUserEnrolledCourses();
+      fetchNotifications();
     }
   }, [user]);
 
-  const value = {
+  const value = useMemo(() => ({
     currency,
     allCourses,
     loading,
@@ -198,8 +236,17 @@ export const AppContextProvider = ({ children }) => {
     calculateCourseDuration,
     user,
     setUser,
-    logout
-  };
+    logout,
+    notifications,
+    unreadCount,
+    fetchNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    api
+  }), [
+    currency, allCourses, loading, error, isEducator,
+    enrolledCourses, user, notifications, unreadCount
+  ]);
 
   return (
     <AppContext.Provider value={value}>

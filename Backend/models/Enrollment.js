@@ -47,5 +47,9 @@ const enrollmentSchema = new mongoose.Schema({
   }
 });
 
+enrollmentSchema.index({ studentId: 1, courseId: 1 });
+enrollmentSchema.index({ status: 1, enrolledAt: -1 });
+enrollmentSchema.index({ courseId: 1 });
+
 const Enrollment = mongoose.model('Enrollment', enrollmentSchema);
 export default Enrollment;

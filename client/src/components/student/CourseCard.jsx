@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { assets } from '../../assets/assets';
 
 const CourseCard = ({ course }) => {
+  const [imgError, setImgError] = useState(false);
   // Calculate average rating from courseRatings array
   const calculateRating = () => {
     if (!course.courseRatings || course.courseRatings.length === 0) return 0;
@@ -70,8 +72,9 @@ const CourseCard = ({ course }) => {
       <div className="relative overflow-hidden">
         <img
           className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-          src={course.courseThumbnail}
+          src={imgError ? assets.course_1_thumbnail : (course.courseThumbnail || assets.course_1_thumbnail)}
           alt={course.courseTitle}
+          onError={() => setImgError(true)}
         />
         {course.discount > 0 && (
           <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-medium">
