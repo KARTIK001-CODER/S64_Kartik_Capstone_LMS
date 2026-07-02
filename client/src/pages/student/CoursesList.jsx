@@ -10,7 +10,7 @@ import { Select } from "../../components/ui/select";
 import { Skeleton, SkeletonCard } from "../../components/ui/skeleton";
 import { EmptyState, ErrorState } from "../../components/ui/empty-state";
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 const CoursesList = () => {
   const navigate = useNavigate();
