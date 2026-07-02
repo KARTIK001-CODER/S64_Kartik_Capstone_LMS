@@ -2,48 +2,60 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   backend:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
     defaults:
       run:
         working-directory: Backend
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
 
       - run: npm ci
 
-      - run: npm test
+      - run: npm run test:coverage
         env:
-          JWT_SECRET: test-secret
-          MONGO_URI: mongodb://localhost:27017/test
+          JWT_SECRET: test_secret
+          RAZORPAY_KEY_ID: test_key
+          RAZORPAY_KEY_SECRET: test_secret
+          MONGODB_URI: mongodb://localhost:27017/test
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-${{ matrix.node-version }}
+          path: Backend/coverage/
 
   frontend:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: client
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
-      - run: npm ci --legacy-peer-deps
-
+      - run: npm ci
       - run: npm run build
