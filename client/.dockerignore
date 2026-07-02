@@ -1,7 +1,5 @@
 node_modules
-uploads
+dist
 .env
 .git
-__tests__
-coverage
 *.md
