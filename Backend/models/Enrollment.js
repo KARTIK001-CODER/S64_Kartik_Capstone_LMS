@@ -41,6 +41,22 @@ const enrollmentSchema = new mongoose.Schema({
       type: Date
     }
   }],
+  lastWatchedLectureId: {
+    type: mongoose.Schema.Types.ObjectId
+  },
+  lastWatchedChapterIndex: {
+    type: Number
+  },
+  lastWatchedLectureIndex: {
+    type: Number
+  },
+  courseCompleted: {
+    type: Boolean,
+    default: false
+  },
+  courseCompletedAt: {
+    type: Date
+  },
   enrolledAt: {
     type: Date,
     default: Date.now

@@ -20,3 +20,9 @@ export const updateCourseProgress = asyncHandler(async (req, res) => {
   const enrollment = await enrollmentService.updateProgress(req.user._id, req.params.courseId, req.body.lectureId);
   res.json(enrollment);
 });
+
+export const updateLastWatched = asyncHandler(async (req, res) => {
+  const { lectureId, chapterIndex, lectureIndex } = req.body;
+  const result = await enrollmentService.updateLastWatched(req.user._id, req.params.courseId, { lectureId, chapterIndex, lectureIndex });
+  res.json(result);
+});

@@ -165,7 +165,10 @@ export const AppContextProvider = ({ children }) => {
         const coursesWithProgress = response.data.map(enrollment => ({
           ...enrollment.courseId,
           progress: enrollment.progress.length || 0,
-          totalLectures: calculateTotalLectures(enrollment.courseId)
+          totalLectures: calculateTotalLectures(enrollment.courseId),
+          lastWatchedChapterIndex: enrollment.lastWatchedChapterIndex,
+          lastWatchedLectureIndex: enrollment.lastWatchedLectureIndex,
+          courseCompleted: enrollment.courseCompleted || false,
         }));
         setEnrolledCourses(coursesWithProgress);
       } else {

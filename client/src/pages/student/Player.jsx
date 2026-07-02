@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import YouTube from 'react-youtube';
 import { assets } from '../../assets/assets';
@@ -13,7 +13,7 @@ const API_BASE = 'http://localhost:5000';
 
 const VideoPlayer = () => {
   const { courseId } = useParams();
-  const { allCourses } = useContext(AppContext);
+  const { allCourses, fetchUserEnrolledCourses } = useContext(AppContext);
   const [playerData, setPlayerData] = useState(null);
   const [courseData, setCourseData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,6 +24,12 @@ const VideoPlayer = () => {
   const [markingComplete, setMarkingComplete] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [lastWatchedInfo, setLastWatchedInfo] = useState(null);
+  const [courseCompleted, setCourseCompleted] = useState(false);
+  const [progressInitialized, setProgressInitialized] = useState(false);
+  const [certificate, setCertificate] = useState(null);
+  const [certificateLoading, setCertificateLoading] = useState(false);
+  const resumeApplied = useRef(false);
 
   const getAuthHeaders = useCallback(() => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -35,14 +41,25 @@ const VideoPlayer = () => {
         `${API_BASE}/api/enrollments/student/course/${courseId}/progress`,
         getAuthHeaders()
       );
-      const progress = res.data.progress || [];
+      const data = res.data;
+      const progress = data.progress || [];
       const completed = new Set(
         progress.filter(p => p.completed).map(p => p.lectureId)
       );
       setCompletedLectures(completed);
+      setCourseCompleted(data.courseCompleted || false);
+      if (data.lastWatchedChapterIndex !== null && data.lastWatchedChapterIndex !== undefined) {
+        setLastWatchedInfo({
+          chapterIndex: data.lastWatchedChapterIndex,
+          lectureIndex: data.lastWatchedLectureIndex,
+        });
+      }
     } catch {
-      // Not enrolled or no progress yet — not an error
       setCompletedLectures(new Set());
+      setCourseCompleted(false);
+      setLastWatchedInfo(null);
+    } finally {
+      setProgressInitialized(true);
     }
   }, [courseId, getAuthHeaders]);
 
@@ -128,6 +145,90 @@ const VideoPlayer = () => {
     }
   }, [allCourses, courseId, fetchProgress]);
 
+  // Fetch certificate when course is completed
+  useEffect(() => {
+    if (!courseCompleted || !courseId) return;
+    const checkCertificate = async () => {
+      try {
+        const res = await axios.get(
+          `${API_BASE}/api/certificates/${courseId}`,
+          getAuthHeaders()
+        );
+        setCertificate(res.data);
+      } catch {
+        setCertificate(null);
+      }
+    };
+    checkCertificate();
+  }, [courseCompleted, courseId, getAuthHeaders]);
+
+  const handleGenerateCertificate = async () => {
+    setCertificateLoading(true);
+    try {
+      const res = await axios.post(
+        `${API_BASE}/api/certificates/generate/${courseId}`,
+        {},
+        getAuthHeaders()
+      );
+      setCertificate(res.data);
+      handleDownloadCertificate(res.data.certificateId);
+    } catch (err) {
+      console.error('Failed to generate certificate:', err);
+    } finally {
+      setCertificateLoading(false);
+    }
+  };
+
+  const handleDownloadCertificate = async (certId) => {
+    try {
+      const certIdToUse = certId || certificate?.certificateId;
+      if (!certIdToUse) return;
+      const response = await axios.get(
+        `${API_BASE}/api/certificates/download/${certIdToUse}`,
+        { ...getAuthHeaders(), responseType: 'blob' }
+      );
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `certificate-${certIdToUse}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download certificate:', err);
+    }
+  };
+
+  // Resume at last-watched position once both course data and progress are loaded
+  useEffect(() => {
+    if (!courseData?.courseContent?.length || !progressInitialized || resumeApplied.current) return;
+    resumeApplied.current = true;
+
+    if (!lastWatchedInfo) return;
+
+    const { chapterIndex, lectureIndex } = lastWatchedInfo;
+    if (chapterIndex === 0 && lectureIndex === 0) return;
+
+    const chapter = courseData.courseContent?.[chapterIndex];
+    const lecture = chapter?.lectures?.[lectureIndex];
+    if (!lecture) return;
+
+    const videoUrl = lecture.videoUrl || lecture.lectureUrl;
+    const videoId = extractYouTubeId(videoUrl);
+    if (!videoId) return;
+
+    setPlayerData({
+      videoId,
+      chapter: chapterIndex + 1,
+      lecture: lectureIndex + 1,
+      lectureTitle: lecture.title || lecture.lectureTitle,
+      lectureUrl: videoUrl,
+    });
+    setCurrentLecture({ chapterIndex, lectureIndex });
+  }, [courseData, progressInitialized, lastWatchedInfo]);
+
   const handleMarkComplete = async () => {
     if (!courseData?.courseContent || markingComplete) return;
 
@@ -145,11 +246,24 @@ const VideoPlayer = () => {
         { lectureId },
         getAuthHeaders()
       );
+
+      const prevCount = completedLectures.size;
+      const newCount = completedLectures.has(lectureId) ? prevCount : prevCount + 1;
+      const total = courseData.courseContent.reduce(
+        (acc, ch) => acc + (ch.lectures || []).length, 0
+      );
+
       setCompletedLectures(prev => {
         const next = new Set(prev);
         next.add(lectureId);
         return next;
       });
+
+      if (newCount >= total) {
+        setCourseCompleted(true);
+      }
+
+      fetchUserEnrolledCourses?.();
     } catch (err) {
       console.error('Failed to mark lecture as complete:', err);
     } finally {
@@ -261,6 +375,14 @@ const VideoPlayer = () => {
       });
       setCurrentLecture({ chapterIndex: chapterIdx, lectureIndex: lectureIdx });
       setError(null);
+
+      // Persist last-watched position
+      const lectureId = lecture._id || lecture.id;
+      axios.put(
+        `${API_BASE}/api/enrollments/student/course/${courseId}/last-watched`,
+        { lectureId, chapterIndex: chapterIdx, lectureIndex: lectureIdx },
+        getAuthHeaders()
+      ).catch(() => {});
     } catch {
       setError('Error loading video');
     }
@@ -368,7 +490,9 @@ const VideoPlayer = () => {
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                  className={`h-2.5 rounded-full transition-all duration-500 ${
+                    courseCompleted ? 'bg-green-500' : 'bg-blue-600'
+                  }`}
                   style={{ width: `${completionPercentage}%` }}
                 />
               </div>
@@ -377,6 +501,21 @@ const VideoPlayer = () => {
                 {courseData.courseContent?.reduce((acc, ch) => acc + (ch.lectures || []).length, 0)}{' '}
                 lectures completed
               </p>
+              {courseCompleted && (
+                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-center space-y-2">
+                  <span className="text-green-700 font-bold text-sm block">Course Completed!</span>
+                  <button
+                    onClick={certificate ? () => handleDownloadCertificate() : handleGenerateCertificate}
+                    disabled={certificateLoading}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {certificateLoading ? 'Generating...' : certificate ? 'Download Certificate' : 'Get Certificate'}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="bg-white rounded-lg shadow-lg p-4">

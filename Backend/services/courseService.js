@@ -159,6 +159,26 @@ export const addRating = async (courseId, userId, rating, review) => {
   return course;
 };
 
+export const deleteRating = async (courseId, userId) => {
+  const course = await Course.findById(courseId);
+  if (!course) {
+    const err = new Error('Course not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const ratingIndex = course.courseRatings.findIndex(r => r.student.toString() === userId.toString());
+  if (ratingIndex === -1) {
+    const err = new Error('No rating found to delete');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  course.courseRatings.splice(ratingIndex, 1);
+  await course.save();
+  return course;
+};
+
 export const listEducatorCourses = async (educatorId, { page, limit }) => {
   const safePage = Math.max(1, parseInt(page) || 1);
   const safeLimit = Math.min(50, Math.max(1, parseInt(limit) || 20));

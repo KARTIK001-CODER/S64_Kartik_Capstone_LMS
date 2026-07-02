@@ -13,10 +13,17 @@ const AuthForm = ({ isLogin }) => {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  // OTP state removed
   const navigate = useNavigate();
   const location = useLocation();
   const { setUser, setIsEducator } = useAppContext();
+
+  // Show redirect message from ProtectedRoute
+  useEffect(() => {
+    if (location.state?.message) {
+      setMessage(location.state.message);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Handle token from Google OAuth callback
   useEffect(() => {
@@ -222,7 +229,11 @@ const AuthForm = ({ isLogin }) => {
         </button>
 
         {message && (
-          <div className={`mt-4 p-3 rounded ${message.includes('successful') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+          <div className={`mt-4 p-3 rounded ${
+            message.includes('successful') ? 'bg-green-100 text-green-700' :
+            message.includes('Please log in') || message.includes('Educator access') ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+            'bg-red-100 text-red-700'
+          }`}>
             {message}
           </div>
         )}
