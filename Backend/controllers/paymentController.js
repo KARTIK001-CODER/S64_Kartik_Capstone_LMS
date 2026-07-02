@@ -13,5 +13,5 @@ export const createOrder = asyncHandler(async (req, res) => {
 
 export const verifyPayment = asyncHandler(async (req, res) => {
   const result = await paymentService.verifyPayment(req.body);
-  res.status(201).json(result);
+  res.json(result);
 });

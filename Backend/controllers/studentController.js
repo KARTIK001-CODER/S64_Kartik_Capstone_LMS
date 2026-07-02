@@ -11,8 +11,8 @@ export const getDashboard = asyncHandler(async (req, res) => {
 export const getProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id).select('-password');
   if (!user) {
-    res.status(404).json({ message: 'User not found' });
-    return;
+    res.status(404);
+    throw new Error('User not found');
   }
 
   const dashboardData = await studentService.getDashboardData(req.user._id);

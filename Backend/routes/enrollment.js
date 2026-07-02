@@ -7,6 +7,11 @@ import {
   updateCourseProgress,
   updateLastWatched
 } from '../controllers/enrollmentController.js';
+import {
+  courseIdValidation,
+  progressUpdateValidation,
+  lastWatchedValidation,
+} from '../middleware/validation.js';
 
 const router = express.Router();
 
@@ -14,27 +19,21 @@ router.use(protect);
 
 /**
  * @openapi
- * /api/enrollments/student/enrolled-courses:
+ * /api/enrollments:
  *   get:
- *     summary: Get all enrolled courses for the logged-in student
+ *     summary: Get all enrolled courses for current user
  *     tags: [Enrollments]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Array of enrollment objects with populated course data
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Enrollment'
+ *         description: List of enrollments with course details
  */
-router.get('/student/enrolled-courses', getEnrolledCourses);
+router.get('/', getEnrolledCourses);
 
 /**
  * @openapi
- * /api/enrollments/student/enroll/{courseId}:
+ * /api/enrollments/enroll/{courseId}:
  *   post:
  *     summary: Enroll in a course
  *     tags: [Enrollments]
@@ -47,19 +46,17 @@ router.get('/student/enrolled-courses', getEnrolledCourses);
  *         schema: { type: string }
  *     responses:
  *       201:
- *         description: Enrollment created
+ *         description: Enrolled successfully
  *       400:
  *         description: Already enrolled
- *       404:
- *         description: Course not found
  */
-router.post('/student/enroll/:courseId', enrollCourse);
+router.post('/enroll/:courseId', courseIdValidation, enrollCourse);
 
 /**
  * @openapi
- * /api/enrollments/student/course/{courseId}/progress:
+ * /api/enrollments/{courseId}/progress:
  *   get:
- *     summary: Get course progress for the logged-in student
+ *     summary: Get progress for a specific course
  *     tags: [Enrollments]
  *     security:
  *       - bearerAuth: []
@@ -70,15 +67,13 @@ router.post('/student/enroll/:courseId', enrollCourse);
  *         schema: { type: string }
  *     responses:
  *       200:
- *         description: Progress object with lecture completion status
- *       404:
- *         description: Not enrolled
+ *         description: Course progress data
  */
-router.get('/student/course/:courseId/progress', getCourseProgress);
+router.get('/:courseId/progress', courseIdValidation, getCourseProgress);
 
 /**
  * @openapi
- * /api/enrollments/student/course/{courseId}/progress:
+ * /api/enrollments/{courseId}/progress:
  *   put:
  *     summary: Mark a lecture as completed
  *     tags: [Enrollments]
@@ -95,22 +90,19 @@ router.get('/student/course/:courseId/progress', getCourseProgress);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [lectureId]
  *             properties:
  *               lectureId: { type: string }
  *     responses:
  *       200:
- *         description: Updated enrollment with new progress
- *       404:
- *         description: Not enrolled
+ *         description: Progress updated
  */
-router.put('/student/course/:courseId/progress', updateCourseProgress);
+router.put('/:courseId/progress', courseIdValidation, progressUpdateValidation, updateCourseProgress);
 
 /**
  * @openapi
- * /api/enrollments/student/course/{courseId}/last-watched:
+ * /api/enrollments/{courseId}/last-watched:
  *   put:
- *     summary: Update last-watched lecture position
+ *     summary: Update last watched lecture
  *     tags: [Enrollments]
  *     security:
  *       - bearerAuth: []
@@ -125,17 +117,14 @@ router.put('/student/course/:courseId/progress', updateCourseProgress);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [lectureId, chapterIndex, lectureIndex]
  *             properties:
  *               lectureId: { type: string }
  *               chapterIndex: { type: integer }
  *               lectureIndex: { type: integer }
  *     responses:
  *       200:
- *         description: Last-watched position updated
- *       404:
- *         description: Not enrolled
+ *         description: Last watched updated
  */
-router.put('/student/course/:courseId/last-watched', updateLastWatched);
+router.put('/:courseId/last-watched', courseIdValidation, lastWatchedValidation, updateLastWatched);
 
 export default router;

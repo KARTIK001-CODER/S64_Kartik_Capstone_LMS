@@ -9,8 +9,8 @@ export const generateCertificate = asyncHandler(async (req, res) => {
 export const getCertificate = asyncHandler(async (req, res) => {
   const certificate = await certificateService.getCertificate(req.user._id, req.params.courseId);
   if (!certificate) {
-    res.status(404).json({ message: 'Certificate not found' });
-    return;
+    res.status(404);
+    throw new Error('Certificate not found');
   }
   res.json(certificate);
 });
