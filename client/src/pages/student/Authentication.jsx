@@ -8,7 +8,7 @@ import { Eye, EyeOff, Mail, User, Lock, UserPlus, LogIn } from "lucide-react";
 // API service functions
 const loginUser = async (userData) => {
   try {
-    const response = await axios.post("/api/auth/login", userData);
+    const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/login`, userData);
     return response.data;
   } catch (error) {
     throw error;
@@ -17,7 +17,7 @@ const loginUser = async (userData) => {
 
 const registerUser = async (userData) => {
   try {
-    const response = await axios.post("/api/auth/register", userData);
+    const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/register`, userData);
     return response.data;
   } catch (error) {
     throw error;
