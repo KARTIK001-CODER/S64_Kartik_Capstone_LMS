@@ -51,7 +51,7 @@ const AuthForm = ({ isLogin }) => {
     else if (!/\S+@\S+\.\S+/.test(form.email)) newErrors.email = 'Invalid email';
     if (!form.password) newErrors.password = 'Password is required';
     else if (form.password.length < 8) newErrors.password = 'Must be at least 8 characters';
-    else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^a-zA-Z\\d])/.test(form.password)) {
+    else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d])/.test(form.password)) {
       newErrors.password = 'Password must contain uppercase, lowercase, number, and special character';
     }
     setErrors(newErrors);
