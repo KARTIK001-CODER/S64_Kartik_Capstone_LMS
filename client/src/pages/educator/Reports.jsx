@@ -78,7 +78,7 @@ const Reports = () => {
 
   const totalStudents = data?.totalStudents || 0;
   const totalCourses = data?.totalCourses || 0;
-  const totalEnrollments = data?.totalEnrollments || 0;
+  // const totalEnrollments = data?.totalEnrollments || 0;
   const totalRevenue = data?.totalRevenue || 0;
   const growthRate = data?.growthRate || 0;
 

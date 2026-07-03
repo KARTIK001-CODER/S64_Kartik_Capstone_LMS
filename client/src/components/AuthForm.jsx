@@ -9,7 +9,7 @@ import logo from '../assets/logo.svg';
 const AuthForm = ({ isLogin }) => {
   const initialForm = isLogin
     ? { email: '', password: '' }
-    : { name: '', email: '', password: '' };
+    : { name: '', email: '', password: '', role: 'student' };
 
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState('');
@@ -50,7 +50,10 @@ const AuthForm = ({ isLogin }) => {
     if (!form.email.trim()) newErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(form.email)) newErrors.email = 'Invalid email';
     if (!form.password) newErrors.password = 'Password is required';
-    else if (form.password.length < 6) newErrors.password = 'Must be at least 6 characters';
+    else if (form.password.length < 8) newErrors.password = 'Must be at least 8 characters';
+    else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^a-zA-Z\\d])/.test(form.password)) {
+      newErrors.password = 'Password must contain uppercase, lowercase, number, and special character';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -226,6 +229,38 @@ const AuthForm = ({ isLogin }) => {
               </div>
               {errors.email && <p className="text-xs text-error mt-1">{errors.email}</p>}
             </div>
+
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  I am a
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="role"
+                      value="student"
+                      checked={form.role === 'student'}
+                      onChange={handleChange}
+                      className="text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm text-foreground">Student</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="role"
+                      value="educator"
+                      checked={form.role === 'educator'}
+                      onChange={handleChange}
+                      className="text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm text-foreground">Educator</span>
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">

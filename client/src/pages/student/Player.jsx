@@ -411,7 +411,7 @@ const VideoPlayer = () => {
               {courseData?.courseContent?.map((chapter, chapterIdx) => {
                 const chapterTitle = chapter.chapterTitle || chapter.title;
                 const lectures = chapter.chapterContent || chapter.lectures || [];
-                const totalMinutes = lectures.reduce((sum, lec) => sum + (lec.duration || lec.lectureDuration || 0), 0);
+                // const totalMinutes = lectures.reduce((sum, lec) => sum + (lec.duration || lec.lectureDuration || 0), 0);
                 const isCurrentChapter = currentLecture.chapterIndex === chapterIdx;
 
                 return (
